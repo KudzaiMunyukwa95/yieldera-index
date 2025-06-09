@@ -1,6 +1,7 @@
 """
-Fully Standalone Quote Engine with rainfall-only planting detection
-Zero dependencies on external core modules - completely self-contained
+Enhanced Quote Engine V2 with all requested fixes and proper crops.py integration
+Resolves crop phase conflicts and implements dynamic deductibles, custom loadings, 
+year alignment, rainfall tracking, and field-level storytelling
 """
 
 import ee
@@ -8,15 +9,45 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 
+# Import from existing crops.py (using your structure)
+from core.crops import (
+    CROP_CONFIG, 
+    AGROECOLOGICAL_ZONES,
+    validate_crop, 
+    get_crop_config, 
+    get_crop_phases,
+    get_crop_phase_weights,
+    get_zone_config
+)
+
+# Try to import zones, with fallback
+try:
+    from core.zones import get_zone_adjustments
+    USING_EXTERNAL_ZONES = True
+    print("🗺️ Using external zones.py for zone adjustments")
+except ImportError:
+    USING_EXTERNAL_ZONES = False
+    print("🗺️ Using crops.py zone data (zones.py not found)")
+
 class QuoteEngine:
-    """Fully standalone quote engine with integrated rainfall-only planting detection"""
+    """Enhanced quote engine V2 with comprehensive fixes and proper crops.py integration"""
     
     def __init__(self):
-        """Initialize with refined components"""
+        """Initialize with enhanced components using your crops.py structure"""
         # Enhanced simulation parameters
         self.base_loading_factor = 1.5  # Base loading multiplier
         self.minimum_premium_rate = 0.015  # 1.5% minimum
         self.maximum_premium_rate = 0.25   # 25% maximum
+        
+        # Dynamic deductible defaults (now configurable)
+        self.default_deductible_rate = 0.05  # 5% default, now flexible
+        
+        # Default loadings (if none provided)
+        self.default_loadings = {
+            "admin": 0.10,       # 10% administrative costs
+            "margin": 0.05,      # 5% profit margin
+            "reinsurance": 0.08  # 8% reinsurance costs
+        }
         
         # Rainfall-based planting detection parameters
         self.rainfall_threshold_7day = 20.0  # mm over 7 consecutive days
@@ -30,137 +61,27 @@ class QuoteEngine:
         self.season_end_month = 1  # January
         self.season_end_day = 31
         
-        # Built-in crop phases (no external dependency)
-        self.crop_phases = {
-            'maize': [
-                {
-                    'phase_name': 'Emergence',
-                    'duration_days': 21,
-                    'start_day': 0,
-                    'end_day': 21,
-                    'water_need_mm': 30,
-                    'trigger_mm': 25,
-                    'exit_mm': 5,
-                    'phase_weight': 0.15
-                },
-                {
-                    'phase_name': 'Vegetative',
-                    'duration_days': 35,
-                    'start_day': 21,
-                    'end_day': 56,
-                    'water_need_mm': 80,
-                    'trigger_mm': 60,
-                    'exit_mm': 15,
-                    'phase_weight': 0.25
-                },
-                {
-                    'phase_name': 'Flowering',
-                    'duration_days': 28,
-                    'start_day': 56,
-                    'end_day': 84,
-                    'water_need_mm': 100,
-                    'trigger_mm': 80,
-                    'exit_mm': 20,
-                    'phase_weight': 0.40
-                },
-                {
-                    'phase_name': 'Grain Fill',
-                    'duration_days': 36,
-                    'start_day': 84,
-                    'end_day': 120,
-                    'water_need_mm': 90,
-                    'trigger_mm': 70,
-                    'exit_mm': 10,
-                    'phase_weight': 0.20
-                }
-            ],
-            'sorghum': [
-                {
-                    'phase_name': 'Emergence',
-                    'duration_days': 14,
-                    'start_day': 0,
-                    'end_day': 14,
-                    'water_need_mm': 25,
-                    'trigger_mm': 20,
-                    'exit_mm': 3,
-                    'phase_weight': 0.20
-                },
-                {
-                    'phase_name': 'Vegetative',
-                    'duration_days': 42,
-                    'start_day': 14,
-                    'end_day': 56,
-                    'water_need_mm': 70,
-                    'trigger_mm': 50,
-                    'exit_mm': 10,
-                    'phase_weight': 0.30
-                },
-                {
-                    'phase_name': 'Flowering',
-                    'duration_days': 28,
-                    'start_day': 56,
-                    'end_day': 84,
-                    'water_need_mm': 80,
-                    'trigger_mm': 60,
-                    'exit_mm': 15,
-                    'phase_weight': 0.35
-                },
-                {
-                    'phase_name': 'Grain Fill',
-                    'duration_days': 36,
-                    'start_day': 84,
-                    'end_day': 120,
-                    'water_need_mm': 60,
-                    'trigger_mm': 45,
-                    'exit_mm': 8,
-                    'phase_weight': 0.15
-                }
-            ]
-        }
-        
-        # Built-in zone adjustments (no external dependency)
-        self.zone_adjustments = {
-            'aez_3_midlands': {
-                'risk_multiplier': 0.9,
-                'zone_name': 'AEZ 3 (Midlands)',
-                'description': 'Lower drought risk - higher rainfall'
-            },
-            'aez_4_masvingo': {
-                'risk_multiplier': 1.2,
-                'zone_name': 'AEZ 4 (Masvingo)',
-                'description': 'Higher drought risk - lower rainfall'
-            },
-            'default': {
-                'risk_multiplier': 1.0,
-                'zone_name': 'Standard Zone',
-                'description': 'Standard risk adjustment'
-            }
-        }
-        
-        # Supported crops
-        self.supported_crops = ['maize', 'sorghum', 'millet', 'groundnuts', 'soybeans']
-        
-        print("🔧 Quote Engine initialized (Fully Standalone)")
+        print("🔧 Quote Engine V2 initialized with enhanced features")
+        print("📚 Using crops.py with 9 crop types and AEZ zones")
         print("🌱 Planting detection: Rainfall-only (no NDVI)")
-        print("📊 Simulation: Detailed year-by-year analysis")
+        print("📊 Features: Dynamic deductibles, custom loadings, year alignment")
         print("🗓️ Season focus: Summer crops only (Oct-Jan planting)")
-        print("🔧 Dependencies: Zero external modules")
     
     def execute_quote(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute quote with enhanced year-by-year simulation
+        Execute quote with enhanced year-by-year simulation and all requested fixes
         
         Args:
             request_data: Quote request parameters
             
         Returns:
-            Enhanced quote with detailed simulation data
+            Enhanced quote with detailed simulation data and fixes
         """
         try:
-            print(f"\n🚀 Starting refined quote execution")
+            print(f"\n🚀 Starting enhanced quote execution V2")
             start_time = datetime.now()
             
-            # Validate and extract parameters
+            # Validate and extract parameters (with deductible and loadings support)
             params = self._validate_and_extract_params(request_data)
             
             # Determine quote type with seasonal validation
@@ -171,9 +92,11 @@ class QuoteEngine:
             print(f"🌾 Crop: {params['crop']}")
             print(f"📍 Location: {params['latitude']:.4f}, {params['longitude']:.4f}")
             print(f"🗓️ Target year: {params['year']}")
+            print(f"💰 Deductible: {params['deductible_rate']*100:.1f}%")
+            print(f"📊 Custom loadings: {len(params['custom_loadings'])} types")
             
-            # Generate historical years for analysis
-            historical_years = self._get_historical_years(params['year'], quote_type)
+            # Generate historical years for analysis (with proper year alignment)
+            historical_years = self._get_historical_years_aligned(params['year'], quote_type)
             print(f"📊 Historical analysis: {len(historical_years)} years ({min(historical_years)}-{max(historical_years)})")
             
             # Detect planting dates using refined rainfall-only logic
@@ -189,17 +112,17 @@ class QuoteEngine:
             if len(valid_planting_dates) < 3:
                 print(f"⚠️ Warning: Only {len(valid_planting_dates)} valid planting seasons detected")
             
-            # Perform detailed year-by-year drought analysis
-            year_by_year_analysis = self._perform_detailed_analysis(
+            # Perform detailed year-by-year drought analysis (with rainfall per phase)
+            year_by_year_analysis = self._perform_detailed_analysis_with_rainfall(
                 params, valid_planting_dates
             )
             
-            # Calculate enhanced quote metrics
-            quote_result = self._calculate_enhanced_quote(
+            # Calculate enhanced quote metrics (with dynamic deductible and loadings)
+            quote_result = self._calculate_enhanced_quote_v2(
                 params, year_by_year_analysis, valid_planting_dates
             )
             
-            # Add detailed simulation results
+            # Add enhanced simulation results with all requested features
             quote_result['year_by_year_simulation'] = year_by_year_analysis
             quote_result['planting_analysis'] = {
                 'detection_method': 'rainfall_only',
@@ -214,13 +137,19 @@ class QuoteEngine:
                 'total_years_analyzed': len(historical_years)
             }
             
+            # Add field-level storytelling
+            quote_result['field_story'] = self._generate_field_story(
+                year_by_year_analysis, params
+            )
+            
             execution_time = (datetime.now() - start_time).total_seconds()
             quote_result['execution_time_seconds'] = round(execution_time, 2)
-            quote_result['version'] = "2.1.0-Standalone"
+            quote_result['version'] = "2.2.0-Enhanced"
             
             print(f"✅ Quote completed in {execution_time:.2f} seconds")
             print(f"💰 Premium rate: {quote_result['premium_rate']*100:.2f}%")
-            print(f"💵 Premium amount: ${quote_result['gross_premium']:,.2f}")
+            print(f"💵 Gross premium: ${quote_result['gross_premium']:,.2f}")
+            print(f"📈 Total loadings: ${quote_result['total_loadings']:,.2f}")
             
             return quote_result
             
@@ -228,32 +157,97 @@ class QuoteEngine:
             print(f"❌ Quote execution error: {e}")
             raise
     
-    def _validate_crop(self, crop: str) -> None:
-        """Validate crop type"""
-        if crop not in self.supported_crops:
-            raise ValueError(f"Unsupported crop: {crop}. Supported crops: {', '.join(self.supported_crops)}")
+    def _validate_and_extract_params(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and extract parameters with enhanced deductible and loadings support"""
+        # Required fields
+        required_fields = ['expected_yield', 'price_per_ton']
+        for field in required_fields:
+            if field not in request_data:
+                raise ValueError(f"Missing required field: {field}")
+        
+        # Location validation
+        if 'geometry' in request_data:
+            geometry = request_data['geometry']
+            if geometry['type'] == 'Point':
+                longitude, latitude = geometry['coordinates']
+            else:
+                raise ValueError("Only Point geometry is supported")
+        elif 'latitude' in request_data and 'longitude' in request_data:
+            latitude = float(request_data['latitude'])
+            longitude = float(request_data['longitude'])
+        else:
+            raise ValueError("Must provide either 'geometry' or 'latitude'/'longitude'")
+        
+        # Coordinate validation for Southern Africa focus
+        if not (-25 <= latitude <= -15 and 25 <= longitude <= 35):
+            print(f"⚠️ Warning: Coordinates outside typical Southern Africa range")
+        
+        # Extract and validate crop using crops.py
+        crop = request_data.get('crop', 'maize').lower().strip()
+        validated_crop = validate_crop(crop)  # Use your validation function
+        
+        expected_yield = float(request_data['expected_yield'])
+        price_per_ton = float(request_data['price_per_ton'])
+        year = int(request_data.get('year', datetime.now().year))
+        
+        # Validate ranges
+        if expected_yield <= 0 or expected_yield > 20:
+            raise ValueError(f"Expected yield must be between 0 and 20 tons/ha")
+        
+        if price_per_ton <= 0 or price_per_ton > 5000:
+            raise ValueError(f"Price per ton must be between 0 and $5000")
+        
+        # Year validation for seasonal appropriateness
+        current_year = datetime.now().year
+        if year < 2018 or year > current_year + 2:
+            raise ValueError(f"Year must be between 2018 and {current_year + 2}")
+        
+        # ENHANCED: Dynamic deductible support
+        deductible_rate = float(request_data.get('deductible_rate', self.default_deductible_rate))
+        if deductible_rate < 0 or deductible_rate > 0.5:
+            raise ValueError(f"Deductible rate must be between 0% and 50%")
+        
+        # ENHANCED: Custom loadings support
+        custom_loadings = request_data.get('loadings', {})
+        if not isinstance(custom_loadings, dict):
+            raise ValueError("Loadings must be provided as a dictionary")
+        
+        # Validate loading values
+        for loading_type, loading_value in custom_loadings.items():
+            if not isinstance(loading_value, (int, float)):
+                raise ValueError(f"Loading '{loading_type}' must be a number")
+            if loading_value < 0 or loading_value > 1.0:
+                raise ValueError(f"Loading '{loading_type}' must be between 0% and 100%")
+        
+        return {
+            'latitude': latitude,
+            'longitude': longitude,
+            'crop': validated_crop,
+            'expected_yield': expected_yield,
+            'price_per_ton': price_per_ton,
+            'year': year,
+            'area_ha': request_data.get('area_ha', 1.0),
+            'zone': request_data.get('zone', 'auto_detect'),
+            'deductible_rate': deductible_rate,  # ENHANCED: Dynamic deductible
+            'custom_loadings': custom_loadings,  # ENHANCED: Custom loadings
+            'buffer_radius': request_data.get('buffer_radius', 1500)
+        }
     
-    def _get_crop_phases(self, crop: str) -> List[Dict[str, Any]]:
-        """Get crop phases for specified crop"""
-        return self.crop_phases.get(crop, self.crop_phases['maize'])
-    
-    def _get_zone_adjustments(self, zone: str) -> Dict[str, Any]:
-        """Get zone adjustments"""
-        return self.zone_adjustments.get(zone, self.zone_adjustments['default'])
+    def _get_historical_years_aligned(self, target_year: int, quote_type: str) -> List[int]:
+        """ENHANCED: Generate properly aligned historical years"""
+        if quote_type == "historical":
+            # For historical quotes, analyze seasons that ended before target year
+            # If target year is 2024, analyze 2018-2023 seasons
+            return list(range(max(2018, target_year - 8), target_year))
+        else:
+            # For prospective quotes, use recent complete seasons
+            # For 2025 prospective, analyze 2018-2024 seasons
+            current_year = datetime.now().year
+            return list(range(max(2018, current_year - 8), current_year))
     
     def _detect_planting_dates_rainfall_only(self, latitude: float, longitude: float, 
                                            years: List[int]) -> Dict[int, Optional[str]]:
-        """
-        Detect planting dates using refined rainfall-only logic
-        
-        Args:
-            latitude: Field latitude
-            longitude: Field longitude  
-            years: List of years to analyze
-            
-        Returns:
-            dict: {year: planting_date_string or None}
-        """
+        """Detect planting dates using refined rainfall-only logic with year alignment"""
         point = ee.Geometry.Point([longitude, latitude])
         results = {}
         
@@ -263,13 +257,14 @@ class QuoteEngine:
         
         for year in years:
             try:
-                # Define summer season bounds for this year
-                season_start = datetime(year - 1, self.season_start_month, self.season_start_day)
-                season_end = datetime(year, self.season_end_month, self.season_end_day)
+                # ENHANCED: Proper year alignment for planting seasons
+                # For growing season ending in 'year', planting happens in previous year
+                planting_season_start = datetime(year - 1, self.season_start_month, self.season_start_day)
+                planting_season_end = datetime(year, self.season_end_month, self.season_end_day)
                 
-                print(f"\n📅 Analyzing {year} season: {season_start.strftime('%Y-%m-%d')} to {season_end.strftime('%Y-%m-%d')}")
+                print(f"\n📅 Analyzing {year} season: {planting_season_start.strftime('%Y-%m-%d')} to {planting_season_end.strftime('%Y-%m-%d')}")
                 
-                planting_date = self._detect_season_planting_rainfall(point, season_start, season_end)
+                planting_date = self._detect_season_planting_rainfall(point, planting_season_start, planting_season_end)
                 results[year] = planting_date
                 
                 if planting_date:
@@ -285,17 +280,7 @@ class QuoteEngine:
     
     def _detect_season_planting_rainfall(self, point: ee.Geometry.Point, 
                                        season_start: datetime, season_end: datetime) -> Optional[str]:
-        """
-        Detect planting date within a specific season using rainfall criteria
-        
-        Args:
-            point: Geographic point
-            season_start: Start of planting window
-            season_end: End of planting window
-            
-        Returns:
-            Planting date string or None
-        """
+        """Detect planting date within a specific season using rainfall criteria"""
         try:
             # Get CHIRPS rainfall data for the season
             start_date = season_start.strftime('%Y-%m-%d')
@@ -351,15 +336,7 @@ class QuoteEngine:
             return None
     
     def _find_planting_with_criteria_simple(self, daily_data: List[Dict]) -> Optional[str]:
-        """
-        Find planting date using refined rainfall criteria
-        
-        Args:
-            daily_data: List of dicts with 'date' and 'rainfall' keys
-            
-        Returns:
-            Planting date string or None
-        """
+        """Find planting date using refined rainfall criteria"""
         if len(daily_data) < 7:
             return None
         
@@ -387,18 +364,9 @@ class QuoteEngine:
         
         return None
     
-    def _perform_detailed_analysis(self, params: Dict[str, Any], 
-                                 planting_dates: Dict[int, str]) -> List[Dict[str, Any]]:
-        """
-        Perform detailed year-by-year drought analysis with individual simulations
-        
-        Args:
-            params: Quote parameters
-            planting_dates: Valid planting dates by year
-            
-        Returns:
-            List of year-by-year analysis results
-        """
+    def _perform_detailed_analysis_with_rainfall(self, params: Dict[str, Any], 
+                                               planting_dates: Dict[int, str]) -> List[Dict[str, Any]]:
+        """ENHANCED: Perform detailed analysis with rainfall data per phase"""
         year_results = []
         
         print(f"\n📊 Starting detailed year-by-year analysis for {len(planting_dates)} seasons")
@@ -407,8 +375,8 @@ class QuoteEngine:
             try:
                 print(f"\n🔍 Analyzing {year} season (planted: {planting_date})")
                 
-                # Calculate individual year metrics
-                year_analysis = self._analyze_individual_year_simplified(params, year, planting_date)
+                # Calculate individual year metrics with rainfall tracking
+                year_analysis = self._analyze_individual_year_with_rainfall(params, year, planting_date)
                 year_results.append(year_analysis)
                 
                 print(f"📈 {year} results: {year_analysis['drought_impact']:.1f}% loss, "
@@ -421,43 +389,41 @@ class QuoteEngine:
                 year_results.append({
                     'year': year,
                     'planting_date': planting_date,
+                    'planting_year': int(planting_date.split('-')[0]) if planting_date else year-1,
+                    'harvest_year': year,
                     'error': str(e),
                     'drought_impact': 0.0,
                     'simulated_premium_rate': 0.0,
                     'simulated_premium_usd': 0.0,
-                    'simulated_payout': 0.0
+                    'simulated_payout': 0.0,
+                    'rainfall_mm_by_phase': {}
                 })
         
         return year_results
     
-    def _analyze_individual_year_simplified(self, params: Dict[str, Any], year: int, 
-                                          planting_date: str) -> Dict[str, Any]:
-        """
-        Simplified drought risk analysis for individual year
-        
-        Args:
-            params: Quote parameters
-            year: Analysis year
-            planting_date: Planting date for that year
-            
-        Returns:
-            Individual year analysis results
-        """
-        # Get crop phases
-        crop_phases = self._get_crop_phases(params['crop'])
+    def _analyze_individual_year_with_rainfall(self, params: Dict[str, Any], year: int, 
+                                             planting_date: str) -> Dict[str, Any]:
+        """ENHANCED: Analyze individual year with rainfall tracking per phase"""
+        # Get crop phases using your crops.py structure
+        crop_phases = get_crop_phases(params['crop'])
         
         # Calculate season end date
         plant_date = datetime.strptime(planting_date, '%Y-%m-%d')
-        total_season_days = sum(phase['duration_days'] for phase in crop_phases)
+        total_season_days = crop_phases[-1][1]  # end_day of last phase
         season_end = plant_date + timedelta(days=total_season_days)
         
-        # Simplified drought analysis using rainfall data
-        drought_impact = self._calculate_simplified_drought_impact(
+        # ENHANCED: Calculate rainfall per phase
+        rainfall_by_phase = self._calculate_rainfall_per_phase(
             params['latitude'],
             params['longitude'],
             planting_date,
             season_end.strftime('%Y-%m-%d'),
-            params['crop']
+            crop_phases
+        )
+        
+        # Calculate drought impact using phase-specific analysis
+        drought_impact = self._calculate_drought_impact_by_phases(
+            crop_phases, rainfall_by_phase, params['crop']
         )
         
         # Simulate individual year premium rate
@@ -472,9 +438,15 @@ class QuoteEngine:
         simulated_premium = sum_insured * individual_premium_rate
         simulated_payout = sum_insured * (drought_impact / 100.0)
         
+        # ENHANCED: Add year alignment info
+        planting_year = int(planting_date.split('-')[0])
+        harvest_year = year
+        
         return {
             'year': year,
             'planting_date': planting_date,
+            'planting_year': planting_year,        # ENHANCED: Clear year labels
+            'harvest_year': harvest_year,          # ENHANCED: Clear year labels
             'season_end_date': season_end.strftime('%Y-%m-%d'),
             'drought_impact': drought_impact,
             'simulated_premium_rate': individual_premium_rate,
@@ -482,83 +454,81 @@ class QuoteEngine:
             'simulated_payout': simulated_payout,
             'net_result': simulated_payout - simulated_premium,  # Farmer perspective
             'loss_ratio': (simulated_payout / simulated_premium) if simulated_premium > 0 else 0,
-            'critical_periods': 0  # Simplified
+            'rainfall_mm_by_phase': rainfall_by_phase,          # ENHANCED: Rainfall per phase
+            'critical_periods': len([p for p, r in rainfall_by_phase.items() if r < 30])  # Phases with low rainfall
         }
     
-    def _calculate_simplified_drought_impact(self, latitude: float, longitude: float,
-                                           planting_date: str, season_end: str, crop: str) -> float:
-        """
-        Calculate simplified drought impact based on rainfall
-        
-        Args:
-            latitude: Field latitude
-            longitude: Field longitude
-            planting_date: Planting date
-            season_end: Season end date
-            crop: Crop type
-            
-        Returns:
-            Drought impact percentage (0-100)
-        """
+    def _calculate_rainfall_per_phase(self, latitude: float, longitude: float,
+                                    planting_date: str, season_end: str, 
+                                    crop_phases: List[Tuple]) -> Dict[str, float]:
+        """ENHANCED: Calculate actual rainfall per crop phase"""
         try:
             point = ee.Geometry.Point([longitude, latitude])
+            plant_date = datetime.strptime(planting_date, '%Y-%m-%d')
             
-            # Get CHIRPS rainfall data for the season
-            chirps = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY') \
-                .filterDate(planting_date, season_end) \
-                .filterBounds(point)
+            rainfall_by_phase = {}
             
-            # Calculate total seasonal rainfall
-            total_rainfall = chirps.sum().reduceRegion(
-                reducer=ee.Reducer.mean(),
-                geometry=point,
-                scale=5566,
-                maxPixels=1
-            ).getInfo()
+            for start_day, end_day, trigger_mm, exit_mm, phase_name, water_need_mm, obs_window in crop_phases:
+                # Calculate phase date range
+                phase_start = plant_date + timedelta(days=start_day)
+                phase_end = plant_date + timedelta(days=end_day)
+                
+                # Get CHIRPS data for this phase
+                chirps = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY') \
+                    .filterDate(phase_start.strftime('%Y-%m-%d'), phase_end.strftime('%Y-%m-%d')) \
+                    .filterBounds(point)
+                
+                # Calculate total rainfall for this phase
+                total_rainfall = chirps.sum().reduceRegion(
+                    reducer=ee.Reducer.mean(),
+                    geometry=point,
+                    scale=5566,
+                    maxPixels=1
+                ).getInfo()
+                
+                phase_rainfall = total_rainfall.get('precipitation', 0)
+                rainfall_by_phase[phase_name] = round(phase_rainfall, 1)
+                
+                print(f"🌧️ {phase_name}: {phase_rainfall:.1f}mm (need: {water_need_mm}mm)")
             
-            seasonal_total = total_rainfall.get('precipitation', 0)
-            
-            # Crop-specific rainfall requirements
-            crop_requirements = {
-                'maize': 400.0,      # mm
-                'sorghum': 300.0,    # mm (more drought tolerant)
-                'millet': 250.0,     # mm (drought tolerant)
-                'groundnuts': 350.0, # mm
-                'soybeans': 450.0    # mm
-            }
-            
-            adequate_rainfall = crop_requirements.get(crop, 400.0)
-            
-            if seasonal_total >= adequate_rainfall:
-                drought_impact = 0.0
-            else:
-                # Linear relationship: 0mm = 100% loss, adequate_rainfall = 0% loss
-                drought_impact = max(0, (adequate_rainfall - seasonal_total) / adequate_rainfall * 100)
-                drought_impact = min(drought_impact, 100.0)  # Cap at 100%
-            
-            print(f"🌧️ Season rainfall: {seasonal_total:.1f}mm (need: {adequate_rainfall:.0f}mm), Impact: {drought_impact:.1f}%")
-            
-            return drought_impact
+            return rainfall_by_phase
             
         except Exception as e:
-            print(f"❌ Error calculating drought impact: {e}")
-            # Return moderate impact as fallback
-            return 15.0
+            print(f"❌ Error calculating rainfall per phase: {e}")
+            # Return empty dict as fallback
+            return {phase[4]: 0.0 for phase in crop_phases}
     
-    def _calculate_enhanced_quote(self, params: Dict[str, Any], 
-                                year_analysis: List[Dict[str, Any]],
-                                planting_dates: Dict[int, str]) -> Dict[str, Any]:
-        """
-        Calculate enhanced quote with aggregated metrics from year-by-year analysis
+    def _calculate_drought_impact_by_phases(self, crop_phases: List[Tuple], 
+                                          rainfall_by_phase: Dict[str, float],
+                                          crop: str) -> float:
+        """Calculate drought impact using phase-specific weights from crops.py"""
+        phase_weights = get_crop_phase_weights(crop)  # Use your function
+        total_impact = 0.0
         
-        Args:
-            params: Quote parameters
-            year_analysis: Individual year analysis results
-            planting_dates: Valid planting dates
+        for i, (start_day, end_day, trigger_mm, exit_mm, phase_name, water_need_mm, obs_window) in enumerate(crop_phases):
+            actual_rainfall = rainfall_by_phase.get(phase_name, 0)
             
-        Returns:
-            Enhanced quote result
-        """
+            # Calculate phase-specific stress
+            if actual_rainfall >= water_need_mm:
+                phase_stress = 0.0  # No stress
+            else:
+                # Linear stress calculation
+                phase_stress = (water_need_mm - actual_rainfall) / water_need_mm
+                phase_stress = min(phase_stress, 1.0)  # Cap at 100% stress
+            
+            # Apply phase weight
+            weighted_impact = phase_stress * phase_weights[i] * 100
+            total_impact += weighted_impact
+            
+            print(f"📊 {phase_name}: {actual_rainfall:.1f}mm/{water_need_mm}mm, "
+                  f"stress: {phase_stress*100:.1f}%, weighted: {weighted_impact:.1f}%")
+        
+        return min(total_impact, 100.0)  # Cap total impact at 100%
+    
+    def _calculate_enhanced_quote_v2(self, params: Dict[str, Any], 
+                                   year_analysis: List[Dict[str, Any]],
+                                   planting_dates: Dict[int, str]) -> Dict[str, Any]:
+        """ENHANCED: Calculate quote with dynamic deductible and custom loadings"""
         valid_years = [y for y in year_analysis if 'error' not in y]
         
         if not valid_years:
@@ -569,25 +539,37 @@ class QuoteEngine:
         avg_premium_rate = sum(y['simulated_premium_rate'] for y in valid_years) / len(valid_years)
         avg_payout = sum(y['simulated_payout'] for y in valid_years) / len(valid_years)
         
-        # Apply zone adjustments
-        zone_adjustments = self._get_zone_adjustments_for_params(params)
+        # Apply zone adjustments using your zone system
+        zone_adjustments = self._get_zone_adjustments_from_crops(params)
         final_premium_rate = avg_premium_rate * zone_adjustments.get('risk_multiplier', 1.0)
         
         # Calculate financial metrics
         sum_insured = params['expected_yield'] * params['price_per_ton'] * params.get('area_ha', 1.0)
         
-        # Apply loadings
+        # Calculate burning cost
         burning_cost = sum_insured * final_premium_rate
-        loadings = params.get('loadings', {})
-        total_loadings = sum(loadings.values()) if loadings else burning_cost * 0.3
-        gross_premium = burning_cost + total_loadings
         
-        # Calculate deductible
-        deductible_rate = params.get('deductible_rate', 0.05)
-        deductible_amount = sum_insured * deductible_rate
+        # ENHANCED: Apply custom loadings or defaults
+        loadings_to_use = params['custom_loadings'] if params['custom_loadings'] else self.default_loadings
         
-        # Generate phase breakdown
-        phase_breakdown = self._generate_simplified_phase_breakdown(params['crop'])
+        loadings_breakdown = {}
+        total_loadings_amount = 0.0
+        
+        for loading_type, loading_rate in loadings_to_use.items():
+            loading_amount = burning_cost * loading_rate
+            loadings_breakdown[loading_type] = {
+                'rate': loading_rate,
+                'amount': loading_amount
+            }
+            total_loadings_amount += loading_amount
+        
+        gross_premium = burning_cost + total_loadings_amount
+        
+        # ENHANCED: Apply dynamic deductible
+        deductible_amount = sum_insured * params['deductible_rate']
+        
+        # Generate enhanced phase breakdown using your crops.py
+        phase_breakdown = self._generate_enhanced_phase_breakdown_from_crops(params['crop'], valid_years)
         
         # Create comprehensive quote result
         quote_result = {
@@ -599,16 +581,17 @@ class QuoteEngine:
             'longitude': params['longitude'],
             'area_ha': params.get('area_ha', 1.0),
             
-            # Financial summary
+            # Financial summary with enhancements
             'expected_yield': params['expected_yield'],
             'price_per_ton': params['price_per_ton'],
             'sum_insured': sum_insured,
             'premium_rate': final_premium_rate,
-            'gross_premium': gross_premium,
             'burning_cost': burning_cost,
-            'loadings': loadings,
-            'deductible_rate': deductible_rate,
-            'deductible_amount': deductible_amount,
+            'loadings_breakdown': loadings_breakdown,    # ENHANCED: Detailed loadings
+            'total_loadings': total_loadings_amount,     # ENHANCED: Total loading amount
+            'gross_premium': gross_premium,              # ENHANCED: Updated calculation
+            'deductible_rate': params['deductible_rate'], # ENHANCED: Dynamic deductible
+            'deductible_amount': deductible_amount,      # ENHANCED: Deductible amount
             
             # Risk analysis
             'expected_payout_ratio': avg_drought_impact / 100.0,
@@ -630,49 +613,165 @@ class QuoteEngine:
             
             # Metadata
             'generated_at': datetime.utcnow().isoformat(),
-            'methodology': 'rainfall_based_planting_refined_simulation_standalone'
+            'methodology': 'rainfall_based_planting_enhanced_v2'
         }
         
         return quote_result
     
-    def _generate_simplified_phase_breakdown(self, crop: str) -> List[Dict[str, Any]]:
-        """
-        Generate simplified phase breakdown
+    def _generate_field_story(self, year_analysis: List[Dict[str, Any]], 
+                            params: Dict[str, Any]) -> Dict[str, Any]:
+        """ENHANCED: Generate field-level storytelling"""
+        valid_years = [y for y in year_analysis if 'error' not in y]
         
-        Args:
-            crop: Crop type
-            
-        Returns:
-            Phase breakdown
-        """
-        crop_phases = self._get_crop_phases(crop)
+        if not valid_years:
+            return {"summary": "Insufficient data for field story generation"}
+        
+        # Calculate totals
+        total_premiums = sum(y['simulated_premium_usd'] for y in valid_years)
+        total_payouts = sum(y['simulated_payout'] for y in valid_years)
+        net_position = total_payouts - total_premiums
+        
+        # Find best and worst years
+        best_year = min(valid_years, key=lambda x: x['drought_impact'])
+        worst_year = max(valid_years, key=lambda x: x['drought_impact'])
+        
+        # Calculate value metrics
+        years_with_payouts = len([y for y in valid_years if y['simulated_payout'] > 0])
+        payout_frequency = years_with_payouts / len(valid_years) * 100
+        
+        # Generate story
+        risk_level = "low" if worst_year['drought_impact'] < 20 else "moderate" if worst_year['drought_impact'] < 50 else "high"
+        
+        summary = (f"Over the past {len(valid_years)} seasons at this {params['crop']} field, "
+                  f"you would have paid ${total_premiums:,.0f} in premiums and received "
+                  f"${total_payouts:,.0f} in payouts — ")
+        
+        if net_position > 0:
+            summary += f"indicating you would have gained ${net_position:,.0f} from insurance coverage."
+        elif net_position < 0:
+            summary += f"indicating you would have paid ${abs(net_position):,.0f} net for risk protection."
+        else:
+            summary += "indicating break-even insurance performance."
+        
+        summary += f" This represents {risk_level} historical drought risk at this location."
+        
+        return {
+            "summary": summary,
+            "historical_performance": {
+                "total_seasons": len(valid_years),
+                "total_premiums_paid": total_premiums,
+                "total_payouts_received": total_payouts,
+                "net_farmer_position": net_position,
+                "payout_frequency_percent": payout_frequency
+            },
+            "best_year": {
+                "year": best_year['year'],
+                "drought_impact": best_year['drought_impact'],
+                "description": f"Excellent growing conditions with only {best_year['drought_impact']:.1f}% drought impact"
+            },
+            "worst_year": {
+                "year": worst_year['year'],
+                "drought_impact": worst_year['drought_impact'],
+                "payout": worst_year['simulated_payout'],
+                "description": f"Severe drought year with {worst_year['drought_impact']:.1f}% loss and ${worst_year['simulated_payout']:,.0f} payout"
+            },
+            "value_for_money": {
+                "loss_ratio": (total_payouts / total_premiums) if total_premiums > 0 else 0,
+                "interpretation": "High value" if (total_payouts / total_premiums) > 0.8 else "Standard value" if (total_payouts / total_premiums) > 0.4 else "Low claims experience"
+            }
+        }
+    
+    def _generate_enhanced_phase_breakdown_from_crops(self, crop: str, 
+                                                    valid_years: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Generate enhanced phase breakdown using your crops.py structure"""
+        crop_phases = get_crop_phases(crop)
         enhanced_phases = []
         
-        for i, phase_template in enumerate(crop_phases):
+        for i, (start_day, end_day, trigger_mm, exit_mm, phase_name, water_need_mm, obs_window) in enumerate(crop_phases):
+            # Collect rainfall data across years for this phase
+            phase_rainfall_data = []
+            for year_data in valid_years:
+                rainfall_by_phase = year_data.get('rainfall_mm_by_phase', {})
+                if phase_name in rainfall_by_phase:
+                    phase_rainfall_data.append(rainfall_by_phase[phase_name])
+            
+            # Calculate phase statistics
+            if phase_rainfall_data:
+                avg_rainfall = sum(phase_rainfall_data) / len(phase_rainfall_data)
+                min_rainfall = min(phase_rainfall_data)
+                max_rainfall = max(phase_rainfall_data)
+                stress_years = len([r for r in phase_rainfall_data if r < water_need_mm])
+            else:
+                avg_rainfall = min_rainfall = max_rainfall = 0
+                stress_years = 0
+            
             enhanced_phase = {
-                **phase_template,
                 'phase_number': i + 1,
-                'historical_performance': {
-                    'average_loss': 0.1,  # Simplified
-                    'maximum_loss': 0.3,
-                    'loss_frequency_percent': 20.0,
-                    'years_with_significant_loss': 2
+                'phase_name': phase_name,
+                'start_day': start_day,
+                'end_day': end_day,
+                'duration_days': end_day - start_day + 1,
+                'trigger_mm': trigger_mm,
+                'exit_mm': exit_mm,
+                'water_need_mm': water_need_mm,
+                'observation_window_days': obs_window,
+                'historical_rainfall': {
+                    'average_mm': round(avg_rainfall, 1),
+                    'minimum_mm': round(min_rainfall, 1),
+                    'maximum_mm': round(max_rainfall, 1),
+                    'stress_years_count': stress_years,
+                    'stress_frequency_percent': (stress_years / len(valid_years) * 100) if valid_years else 0
                 }
             }
+            
             enhanced_phases.append(enhanced_phase)
         
         return enhanced_phases
     
-    def _get_planting_windows_summary(self, planting_dates: Dict[int, Optional[str]]) -> Dict:
-        """
-        Generate summary statistics for planting windows
+    def _get_zone_adjustments_from_crops(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Get zone adjustments using your crops.py zone system"""
+        zone = params.get('zone', 'auto_detect')
         
-        Args:
-            planting_dates: Dictionary of year -> planting_date
-            
-        Returns:
-            Summary statistics
-        """
+        if zone == 'auto_detect':
+            zone = self._auto_detect_zone(params['latitude'], params['longitude'])
+        
+        # Use your zone configuration from crops.py
+        zone_config = get_zone_config(zone)
+        
+        # Convert to expected format with risk multiplier
+        risk_multiplier = 1.0
+        if zone == 'aez_4_masvingo':
+            risk_multiplier = 1.2  # Higher risk in semi-arid
+        elif zone == 'aez_5_lowveld':
+            risk_multiplier = 1.4  # Highest risk in lowveld
+        elif zone == 'aez_3_midlands':
+            risk_multiplier = 0.9  # Lower risk in midlands
+        
+        return {
+            'zone_name': zone_config['name'],
+            'risk_multiplier': risk_multiplier,
+            'description': zone_config['description'],
+            'primary_risk': zone_config['primary_risk'],
+            'annual_rainfall_range': zone_config['annual_rainfall_range']
+        }
+    
+    def _auto_detect_zone(self, latitude: float, longitude: float) -> str:
+        """Auto-detect agro-ecological zone based on coordinates with enhanced logic"""
+        # Enhanced zone detection for Zimbabwe/Southern Africa
+        if latitude > -17.0:
+            return 'aez_3_midlands'  # Northern areas - better rainfall
+        elif latitude > -19.0:
+            return 'aez_4_masvingo'  # Central areas - moderate risk
+        else:
+            return 'aez_5_lowveld'   # Southern areas - high drought risk
+    
+    def _get_zone_risk_multiplier(self, params: Dict[str, Any]) -> float:
+        """Get zone-specific risk multiplier"""
+        zone_adjustments = self._get_zone_adjustments_from_crops(params)
+        return zone_adjustments.get('risk_multiplier', 1.0)
+    
+    def _get_planting_windows_summary(self, planting_dates: Dict[int, Optional[str]]) -> Dict:
+        """Generate summary statistics for planting windows"""
         valid_dates = [date for date in planting_dates.values() if date is not None]
         
         if not valid_dates:
@@ -686,26 +785,41 @@ class QuoteEngine:
                 "total_years": len(planting_dates)
             }
         
+        # Calculate average planting date
+        date_objects = [datetime.strptime(date, '%Y-%m-%d') for date in valid_dates]
+        
+        # Convert to day of year for averaging (handling year transition)
+        days_of_year = []
+        for date_obj in date_objects:
+            day_of_year = date_obj.timetuple().tm_yday
+            # Adjust for October-January season
+            if day_of_year >= 274:  # October onwards
+                adjusted_day = day_of_year - 274  # Oct 1 = day 0
+            else:  # January
+                adjusted_day = day_of_year + (365 - 274)  # Jan 1 = day 92
+            days_of_year.append(adjusted_day)
+        
+        avg_day = sum(days_of_year) / len(days_of_year)
+        
+        # Convert back to readable date
+        if avg_day <= 91:  # October-December
+            avg_date = datetime(2000, 10, 1) + timedelta(days=int(avg_day))
+        else:  # January
+            days_into_jan = avg_day - 92
+            avg_date = datetime(2001, 1, 1) + timedelta(days=int(days_into_jan))
+        
         return {
             "detection_rate": len(valid_dates) / len(planting_dates) * 100,
-            "average_planting_date": "November 15",  # Simplified
+            "average_planting_date": avg_date.strftime('%B %d'),
             "earliest_planting": min(valid_dates),
             "latest_planting": max(valid_dates),
-            "planting_spread_days": 45,  # Simplified
+            "planting_spread_days": max(days_of_year) - min(days_of_year) if len(days_of_year) > 1 else 0,
             "successful_years": len(valid_dates),
             "total_years": len(planting_dates)
         }
     
     def _validate_seasonal_planting_dates(self, planting_dates: Dict[int, Optional[str]]) -> Dict[int, str]:
-        """
-        Validate planting dates fall within acceptable seasonal windows
-        
-        Args:
-            planting_dates: Raw planting dates from detection
-            
-        Returns:
-            Filtered planting dates within valid seasons
-        """
+        """Validate planting dates fall within acceptable seasonal windows"""
         valid_dates = {}
         
         for year, date_str in planting_dates.items():
@@ -728,15 +842,7 @@ class QuoteEngine:
         return valid_dates
     
     def _determine_quote_type_with_validation(self, year: int) -> str:
-        """
-        Determine quote type with seasonal validation
-        
-        Args:
-            year: Target year
-            
-        Returns:
-            Quote type string
-        """
+        """Determine quote type with seasonal validation"""
         current_year = datetime.now().year
         current_month = datetime.now().month
         
@@ -752,107 +858,6 @@ class QuoteEngine:
         else:
             return "historical"
     
-    def _get_zone_risk_multiplier(self, params: Dict[str, Any]) -> float:
-        """Get zone-specific risk multiplier"""
-        zone = params.get('zone', 'auto_detect')
-        
-        if zone == 'auto_detect':
-            # Auto-detect based on coordinates
-            zone = self._auto_detect_zone(params['latitude'], params['longitude'])
-        
-        zone_adjustments = self._get_zone_adjustments(zone)
-        return zone_adjustments.get('risk_multiplier', 1.0)
-    
-    def _get_zone_adjustments_for_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get comprehensive zone adjustments"""
-        zone = params.get('zone', 'auto_detect')
-        
-        if zone == 'auto_detect':
-            zone = self._auto_detect_zone(params['latitude'], params['longitude'])
-        
-        return self._get_zone_adjustments(zone)
-    
-    def _auto_detect_zone(self, latitude: float, longitude: float) -> str:
-        """Auto-detect agro-ecological zone based on coordinates"""
-        # Simple zone detection for Zimbabwe/Southern Africa
-        if latitude > -17.5:
-            return 'aez_3_midlands'  # Northern areas
-        else:
-            return 'aez_4_masvingo'  # Southern areas
-    
-    def _get_historical_years(self, target_year: int, quote_type: str) -> List[int]:
-        """Generate appropriate historical years for analysis"""
-        if quote_type == "historical":
-            # For historical quotes, use years before target year
-            return list(range(max(2018, target_year - 10), target_year))
-        else:
-            # For prospective quotes, use recent historical years
-            current_year = datetime.now().year
-            return list(range(max(2018, current_year - 8), current_year))
-    
-    def _validate_and_extract_params(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and extract parameters with enhanced checks"""
-        # Required fields
-        required_fields = ['expected_yield', 'price_per_ton']
-        for field in required_fields:
-            if field not in request_data:
-                raise ValueError(f"Missing required field: {field}")
-        
-        # Location validation
-        if 'geometry' in request_data:
-            # Extract from geometry
-            geometry = request_data['geometry']
-            if geometry['type'] == 'Point':
-                longitude, latitude = geometry['coordinates']
-            else:
-                raise ValueError("Only Point geometry is supported")
-        elif 'latitude' in request_data and 'longitude' in request_data:
-            latitude = float(request_data['latitude'])
-            longitude = float(request_data['longitude'])
-        else:
-            raise ValueError("Must provide either 'geometry' or 'latitude'/'longitude'")
-        
-        # Coordinate validation for Southern Africa focus
-        if not (-25 <= latitude <= -15 and 25 <= longitude <= 35):
-            print(f"⚠️ Warning: Coordinates outside typical Southern Africa range")
-        
-        # Extract and validate other parameters
-        crop = request_data.get('crop', 'maize').lower().strip()
-        self._validate_crop(crop)
-        
-        expected_yield = float(request_data['expected_yield'])
-        price_per_ton = float(request_data['price_per_ton'])
-        year = int(request_data.get('year', datetime.now().year))
-        
-        # Validate ranges
-        if expected_yield <= 0 or expected_yield > 20:
-            raise ValueError(f"Expected yield must be between 0 and 20 tons/ha")
-        
-        if price_per_ton <= 0 or price_per_ton > 5000:
-            raise ValueError(f"Price per ton must be between 0 and $5000")
-        
-        # Year validation for seasonal appropriateness
-        current_year = datetime.now().year
-        if year < 2018 or year > current_year + 2:
-            raise ValueError(f"Year must be between 2018 and {current_year + 2}")
-        
-        return {
-            'latitude': latitude,
-            'longitude': longitude,
-            'crop': crop,
-            'expected_yield': expected_yield,
-            'price_per_ton': price_per_ton,
-            'year': year,
-            'area_ha': request_data.get('area_ha', 1.0),
-            'zone': request_data.get('zone', 'auto_detect'),
-            'loadings': request_data.get('loadings', {}),
-            'deductible_rate': request_data.get('deductible_rate', 0.05),
-            'buffer_radius': request_data.get('buffer_radius', 1500)
-        }
-    
     def _determine_quote_type(self, year: int) -> str:
-        """
-        Determine quote type based on year
-        Maintained for backward compatibility
-        """
+        """Determine quote type based on year - backward compatibility"""
         return self._determine_quote_type_with_validation(year)
