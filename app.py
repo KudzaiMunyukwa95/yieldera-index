@@ -68,7 +68,8 @@ def create_app():
                     "bulk": "POST /api/quotes/bulk",
                     "detailed_report": "GET /api/quotes/report/{quote_id}",
                     "simulation_details": "GET /api/quotes/simulation/{quote_id}",
-                    "test_refined": "POST /api/quotes/test/refined"
+                    "test_refined": "POST /api/quotes/test/refined",
+                    "validate": "POST /api/quotes/validate"
                 },
                 "fields": {
                     "list": "GET /api/fields",
@@ -100,7 +101,13 @@ def create_app():
                 "planting_window": "October - January",
                 "off_season_rejection": "Automatic",
                 "agronomic_basis": "Southern African cropping patterns"
-            }
+            },
+            "key_improvements": [
+                "Fixed premium rate simulation per year",
+                "Seasonal logic for prospective quotes",
+                "Rainfall-based planting (20mm/7days)",
+                "Accurate agronomic criteria"
+            ]
         })
     
     # Enhanced error handlers
@@ -117,6 +124,7 @@ def create_app():
                 "POST /api/quotes/field/{field_id}",
                 "GET /api/quotes/simulation/{quote_id}",
                 "POST /api/quotes/test/refined",
+                "POST /api/quotes/validate",
                 "GET /api/fields"
             ],
             "version": "2.1.0-Refined"
@@ -157,5 +165,10 @@ if __name__ == '__main__':
     print(f"📊 Simulation: Year-by-year premium/payout analysis")
     print(f"🗓️ Season Focus: Summer crops (Oct-Jan planting)")
     print(f"🎯 Geographic Focus: Southern Africa")
+    print(f"🔧 Key Fixes:")
+    print(f"   - Removed all NDVI logic")
+    print(f"   - Added individual year premium/payout simulation")
+    print(f"   - Fixed seasonal logic for prospective quotes")
+    print(f"   - Enhanced agronomic planting criteria")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
