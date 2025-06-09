@@ -1,5 +1,5 @@
 """
-Quote API endpoints for Yieldera Index Insurance Engine - COMPLETE FIXED VERSION
+Quote API endpoints - FINAL FIX for NoneType Error
 """
 
 from flask import Blueprint, request, jsonify
@@ -21,25 +21,54 @@ fields_repo = FieldsRepository()
 quotes_repo = QuotesRepository()
 ai_generator = AISummaryGenerator()
 
+def safe_float_conversion(value, field_name, default=None):
+    """Safely convert value to float with proper error handling"""
+    if value is None:
+        return default
+    
+    try:
+        float_value = float(value)
+        return float_value
+    except (ValueError, TypeError):
+        print(f"Warning: Could not convert {field_name} to float: {value}")
+        return default
+
+def validate_field_coordinates(field_data, field_id):
+    """Validate field coordinates with comprehensive error checking"""
+    
+    # Check if latitude exists and is not None
+    lat_raw = field_data.get('latitude')
+    lng_raw = field_data.get('longitude')
+    
+    if lat_raw is None:
+        return None, None, f"Field {field_id} has no latitude data"
+    
+    if lng_raw is None:
+        return None, None, f"Field {field_id} has no longitude data"
+    
+    # Try to convert to float
+    try:
+        latitude = float(lat_raw)
+    except (ValueError, TypeError):
+        return None, None, f"Field {field_id} has invalid latitude: {lat_raw}"
+    
+    try:
+        longitude = float(lng_raw)
+    except (ValueError, TypeError):
+        return None, None, f"Field {field_id} has invalid longitude: {lng_raw}"
+    
+    # Validate coordinate ranges
+    if not (-90 <= latitude <= 90):
+        return None, None, f"Field {field_id} latitude out of range: {latitude}"
+    
+    if not (-180 <= longitude <= 180):
+        return None, None, f"Field {field_id} longitude out of range: {longitude}"
+    
+    return latitude, longitude, None
+
 @quotes_bp.route('/historical', methods=['POST'])
 def historical_quote():
-    """
-    Generate historical quote for a specific year
-    
-    Request body:
-    {
-        "year": 2023,
-        "crop": "maize",
-        "expected_yield": 5.0,
-        "price_per_ton": 300,
-        "area_ha": 2.5,
-        "latitude": -17.7888,
-        "longitude": 30.6015,
-        "buffer_radius": 1500,
-        "loadings": {"admin": 0.15, "profit": 0.10},
-        "zone": "auto_detect"
-    }
-    """
+    """Generate historical quote for a specific year"""
     try:
         start_time = time.time()
         data = request.get_json()
@@ -77,7 +106,6 @@ def historical_quote():
                 quote_result['quote_id'] = quote_id
         except Exception as e:
             print(f"Failed to save quote: {e}")
-            # Continue without saving
         
         execution_time = time.time() - start_time
         
@@ -98,23 +126,7 @@ def historical_quote():
 
 @quotes_bp.route('/prospective', methods=['POST'])
 def prospective_quote():
-    """
-    Generate prospective quote for future season - OPTIMIZED
-    
-    Request body:
-    {
-        "year": 2025,
-        "crop": "maize",
-        "expected_yield": 5.0,
-        "price_per_ton": 300,
-        "area_ha": 2.5,
-        "latitude": -17.7888,
-        "longitude": 30.6015,
-        "buffer_radius": 1500,
-        "loadings": {"admin": 0.15, "profit": 0.10},
-        "zone": "auto_detect"
-    }
-    """
+    """Generate prospective quote for future season - OPTIMIZED"""
     try:
         start_time = time.time()
         data = request.get_json()
@@ -140,7 +152,7 @@ def prospective_quote():
         
         print(f"Starting prospective quote for year {data['year']}")
         
-        # Execute quote with timeout protection
+        # Execute quote
         quote_result = quote_engine.execute_quote(data)
         
         # Generate AI summary
@@ -158,7 +170,6 @@ def prospective_quote():
                 quote_result['quote_id'] = quote_id
         except Exception as e:
             print(f"Failed to save quote: {e}")
-            # Continue without saving
         
         execution_time = time.time() - start_time
         print(f"Prospective quote completed in {execution_time:.2f} seconds")
@@ -181,16 +192,7 @@ def prospective_quote():
 @quotes_bp.route('/field/<int:field_id>', methods=['POST'])
 def field_based_quote(field_id):
     """
-    Generate quote for a specific field from database - ENHANCED ERROR HANDLING
-    
-    Request body:
-    {
-        "year": 2024,
-        "expected_yield": 5.0,
-        "price_per_ton": 300,
-        "loadings": {"admin": 0.15, "profit": 0.10},
-        "zone": "auto_detect"
-    }
+    Generate quote for a specific field - ENHANCED NULL HANDLING
     """
     try:
         start_time = time.time()
@@ -202,22 +204,7 @@ def field_based_quote(field_id):
                 "message": "Request body is required"
             }), 400
         
-        # Get field data with enhanced validation
-        field_data = fields_repo.get_field_by_id(field_id)
-        if not field_data:
-            return jsonify({
-                "status": "error",
-                "message": f"Field {field_id} not found"
-            }), 404
-        
-        # Validate field coordinates
-        if not field_data.get('latitude') or not field_data.get('longitude'):
-            return jsonify({
-                "status": "error",
-                "message": f"Field {field_id} has invalid or missing coordinates"
-            }), 400
-        
-        # Validate required fields
+        # Validate required fields in request
         required_fields = ['expected_yield', 'price_per_ton']
         for field in required_fields:
             if field not in data:
@@ -226,49 +213,64 @@ def field_based_quote(field_id):
                     "message": f"Missing required field: {field}"
                 }), 400
         
-        # Enhanced field data validation with None checks
-        try:
-            latitude = float(field_data['latitude'])
-            longitude = float(field_data['longitude'])
-            
-            # Validate coordinate ranges
-            if not (-90 <= latitude <= 90):
-                raise ValueError(f"Invalid latitude: {latitude}")
-            if not (-180 <= longitude <= 180):
-                raise ValueError(f"Invalid longitude: {longitude}")
-                
-        except (ValueError, TypeError) as e:
+        # Get field data
+        print(f"Fetching field data for field {field_id}")
+        field_data = fields_repo.get_field_by_id(field_id)
+        
+        if not field_data:
             return jsonify({
                 "status": "error",
-                "message": f"Field {field_id} has invalid coordinates: {str(e)}"
+                "message": f"Field {field_id} not found in database"
+            }), 404
+        
+        print(f"Field {field_id} data: {field_data}")
+        
+        # Validate and extract coordinates using safe conversion
+        latitude, longitude, coord_error = validate_field_coordinates(field_data, field_id)
+        
+        if coord_error:
+            return jsonify({
+                "status": "error",
+                "message": coord_error
             }), 400
         
-        # Handle area_ha with proper None checking
+        print(f"Field {field_id} coordinates validated: lat={latitude}, lng={longitude}")
+        
+        # Handle area_ha with comprehensive null checking
         area_ha = None
-        if field_data.get('area_ha') is not None:
-            try:
-                area_ha = float(field_data['area_ha'])
-                if area_ha <= 0:
-                    print(f"Warning: Field {field_id} has invalid area: {area_ha}")
-                    area_ha = None
-            except (ValueError, TypeError):
-                print(f"Warning: Field {field_id} has non-numeric area: {field_data.get('area_ha')}")
+        area_raw = field_data.get('area_ha')
+        
+        if area_raw is not None:
+            area_ha = safe_float_conversion(area_raw, 'area_ha', None)
+            if area_ha is not None and area_ha <= 0:
+                print(f"Warning: Field {field_id} has non-positive area: {area_ha}, setting to None")
                 area_ha = None
         
-        # Prepare quote request
+        print(f"Field {field_id} area_ha: {area_ha}")
+        
+        # Handle crop field
+        crop = field_data.get('crop')
+        if not crop or crop.strip() == '':
+            crop = 'maize'  # Default crop
+        else:
+            crop = str(crop).strip()
+        
+        print(f"Field {field_id} crop: {crop}")
+        
+        # Prepare quote request with validated data
         quote_request = {
             'latitude': latitude,
             'longitude': longitude,
             'area_ha': area_ha,
-            'crop': field_data.get('crop', 'maize'),
-            'expected_yield': data['expected_yield'],
-            'price_per_ton': data['price_per_ton'],
-            'year': data.get('year', datetime.now().year),
+            'crop': crop,
+            'expected_yield': safe_float_conversion(data['expected_yield'], 'expected_yield'),
+            'price_per_ton': safe_float_conversion(data['price_per_ton'], 'price_per_ton'),
+            'year': int(data.get('year', datetime.now().year)),
             'loadings': data.get('loadings', {}),
             'zone': data.get('zone', 'auto_detect'),
-            'deductible_rate': data.get('deductible_rate'),
-            'deductible_threshold': data.get('deductible_threshold'),
-            'buffer_radius': data.get('buffer_radius', 1500),
+            'deductible_rate': safe_float_conversion(data.get('deductible_rate'), 'deductible_rate'),
+            'deductible_threshold': safe_float_conversion(data.get('deductible_threshold'), 'deductible_threshold', 0.0),
+            'buffer_radius': safe_float_conversion(data.get('buffer_radius'), 'buffer_radius', 1500),
             'field_info': {
                 'type': 'field',
                 'field_id': field_id,
@@ -278,11 +280,28 @@ def field_based_quote(field_id):
             }
         }
         
+        # Validate essential quote request fields
+        if quote_request['expected_yield'] is None or quote_request['expected_yield'] <= 0:
+            return jsonify({
+                "status": "error",
+                "message": "Invalid expected_yield value"
+            }), 400
+            
+        if quote_request['price_per_ton'] is None or quote_request['price_per_ton'] <= 0:
+            return jsonify({
+                "status": "error",
+                "message": "Invalid price_per_ton value"
+            }), 400
+        
+        print(f"Executing quote for field {field_id}")
+        
         # Execute quote
         quote_result = quote_engine.execute_quote(quote_request)
         
         # Add field information to result
         quote_result['field_info'] = quote_request['field_info']
+        
+        print(f"Quote execution completed for field {field_id}")
         
         # Generate AI summary
         try:
@@ -300,7 +319,6 @@ def field_based_quote(field_id):
                 quote_result['quote_id'] = quote_id
         except Exception as e:
             print(f"Failed to save quote: {e}")
-            # Continue without saving
         
         execution_time = time.time() - start_time
         
@@ -312,7 +330,7 @@ def field_based_quote(field_id):
                 "name": field_data.get('name'),
                 "farmer_name": field_data.get('farmer_name'),
                 "area_ha": area_ha,
-                "crop": field_data.get('crop'),
+                "crop": crop,
                 "latitude": latitude,
                 "longitude": longitude
             },
@@ -321,42 +339,17 @@ def field_based_quote(field_id):
         })
         
     except Exception as e:
-        print(f"Field quote error: {traceback.format_exc()}")
+        print(f"Field quote error for field {field_id}: {traceback.format_exc()}")
         return jsonify({
             "status": "error",
             "message": str(e),
-            "error_type": type(e).__name__
+            "error_type": type(e).__name__,
+            "field_id": field_id
         }), 500
 
 @quotes_bp.route('/bulk', methods=['POST'])
 def bulk_quote():
-    """
-    Generate quotes for multiple fields or locations
-    
-    Request body:
-    {
-        "requests": [
-            {
-                "field_id": 56,
-                "year": 2024,
-                "expected_yield": 5.0,
-                "price_per_ton": 300
-            },
-            {
-                "latitude": -17.7888,
-                "longitude": 30.6015,
-                "crop": "sorghum",
-                "year": 2024,
-                "expected_yield": 4.0,
-                "price_per_ton": 250
-            }
-        ],
-        "global_settings": {
-            "loadings": {"admin": 0.15, "profit": 0.10},
-            "zone": "auto_detect"
-        }
-    }
-    """
+    """Generate quotes for multiple fields or locations"""
     try:
         start_time = time.time()
         data = request.get_json()
@@ -384,32 +377,29 @@ def bulk_quote():
                 # Merge global settings
                 quote_request = {**global_settings, **req}
                 
-                # Handle field-based request
+                # Handle field-based request with enhanced validation
                 if 'field_id' in req:
                     field_data = fields_repo.get_field_by_id(req['field_id'])
                     if field_data:
-                        # Validate field data
-                        if not field_data.get('latitude') or not field_data.get('longitude'):
+                        # Validate coordinates
+                        latitude, longitude, coord_error = validate_field_coordinates(field_data, req['field_id'])
+                        
+                        if coord_error:
                             results.append({
                                 "request_index": i,
                                 "status": "error",
-                                "message": f"Field {req['field_id']} has invalid coordinates"
+                                "message": coord_error
                             })
                             continue
                         
                         # Handle area_ha safely
-                        area_ha = None
-                        if field_data.get('area_ha') is not None:
-                            try:
-                                area_ha = float(field_data['area_ha'])
-                                if area_ha <= 0:
-                                    area_ha = None
-                            except (ValueError, TypeError):
-                                area_ha = None
+                        area_ha = safe_float_conversion(field_data.get('area_ha'), 'area_ha', None)
+                        if area_ha is not None and area_ha <= 0:
+                            area_ha = None
                         
                         quote_request.update({
-                            'latitude': float(field_data['latitude']),
-                            'longitude': float(field_data['longitude']),
+                            'latitude': latitude,
+                            'longitude': longitude,
                             'area_ha': area_ha,
                             'crop': field_data.get('crop', quote_request.get('crop', 'maize')),
                             'field_info': {
@@ -565,16 +555,15 @@ def validate_quote_request():
         if not (has_geometry or has_coordinates or has_field_id):
             validation_errors.append("Must provide either 'geometry', 'latitude'/'longitude', or 'field_id'")
         
-        # Validate numeric fields with None checks
+        # Validate numeric fields with safe conversion
         numeric_fields = ['expected_yield', 'price_per_ton', 'area_ha', 'year', 'latitude', 'longitude']
         for field in numeric_fields:
             if field in data and data[field] is not None:
-                try:
-                    value = float(data[field])
-                    if field in ['expected_yield', 'price_per_ton', 'area_ha'] and value <= 0:
-                        validation_errors.append(f"Field '{field}' must be positive")
-                except (ValueError, TypeError):
-                    validation_errors.append(f"Field '{field}' must be a number")
+                converted_value = safe_float_conversion(data[field], field)
+                if converted_value is None:
+                    validation_errors.append(f"Field '{field}' must be a valid number")
+                elif field in ['expected_yield', 'price_per_ton', 'area_ha'] and converted_value <= 0:
+                    validation_errors.append(f"Field '{field}' must be positive")
         
         if validation_errors:
             return jsonify({
