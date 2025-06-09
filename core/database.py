@@ -1,5 +1,5 @@
 """
-Database management - ULTIMATE FIX for bytearray and NoneType issues
+Database management - QUICK FIX for location bytearray issue
 """
 
 import mysql.connector
@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any
 from contextlib import contextmanager
 from config import Config
 import decimal
+import traceback
 
 class DatabaseManager:
     """Manages database connections and operations"""
@@ -56,25 +57,25 @@ class DatabaseManager:
             return False
 
 def clean_database_value(value):
-    """Clean database values for JSON serialization"""
+    """Clean database values for JSON serialization - ENHANCED"""
     if value is None:
         return None
     
     # Handle bytearray (common in some MySQL configurations)
     if isinstance(value, bytearray):
         try:
-            # Try to decode as string
+            # Try to decode as string first
             return value.decode('utf-8')
         except UnicodeDecodeError:
-            # If not valid UTF-8, convert to string representation
-            return str(value)
+            # If not valid UTF-8, convert to hex string for geometry data
+            return f"GEOMETRY_DATA_{len(value)}_bytes"
     
     # Handle bytes
     if isinstance(value, bytes):
         try:
             return value.decode('utf-8')
         except UnicodeDecodeError:
-            return str(value)
+            return f"BINARY_DATA_{len(value)}_bytes"
     
     # Handle decimal.Decimal
     if isinstance(value, decimal.Decimal):
@@ -106,6 +107,10 @@ def safe_numeric_conversion(value, field_name="unknown"):
     if isinstance(cleaned_value, str):
         cleaned_str = cleaned_value.strip()
         if cleaned_str == '' or cleaned_str.lower() in ['null', 'none']:
+            return None
+        
+        # Skip geometry/binary data strings
+        if cleaned_str.startswith(('GEOMETRY_DATA_', 'BINARY_DATA_')):
             return None
         
         try:
@@ -155,9 +160,13 @@ class FieldsRepository:
                 # Clean all database values
                 field_data = {}
                 for key, value in raw_field_data.items():
-                    field_data[key] = clean_database_value(value)
+                    cleaned = clean_database_value(value)
+                    field_data[key] = cleaned
+                    
+                    # Special handling for geometry fields
+                    if key == 'location' and isinstance(value, bytearray):
+                        field_data[key] = "GEOMETRY_POLYGON"  # Simplified representation
                 
-                print(f"Field {field_id} raw data: {raw_field_data}")
                 print(f"Field {field_id} cleaned data: {field_data}")
                 
                 # Validate coordinates with safe conversion
@@ -287,7 +296,7 @@ class FieldsRepository:
                     where_clauses.append("owner_entity_id = %s")
                     params.append(filters['owner_entity_id'])
                 
-                # Base query
+                # Base query - exclude location field to avoid bytearray issues
                 query = """
                 SELECT 
                     id, name, farmer_name, area_ha, crop,
@@ -623,6 +632,3 @@ def init_database_tables():
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
         raise
-
-# Add missing import
-import traceback
