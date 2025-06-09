@@ -1,6 +1,6 @@
 """
-Standalone Quote Engine with rainfall-only planting detection
-Compatible with existing codebase, no external core module dependencies
+Fully Standalone Quote Engine with rainfall-only planting detection
+Zero dependencies on external core modules - completely self-contained
 """
 
 import ee
@@ -8,12 +8,8 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 
-# Import only what exists in your codebase
-from core.zones import get_zone_adjustments
-from core.crops import CROP_PHASES, get_crop_info, validate_crop
-
 class QuoteEngine:
-    """Standalone quote engine with integrated rainfall-only planting detection"""
+    """Fully standalone quote engine with integrated rainfall-only planting detection"""
     
     def __init__(self):
         """Initialize with refined components"""
@@ -34,10 +30,121 @@ class QuoteEngine:
         self.season_end_month = 1  # January
         self.season_end_day = 31
         
-        print("🔧 Quote Engine initialized with refined features")
+        # Built-in crop phases (no external dependency)
+        self.crop_phases = {
+            'maize': [
+                {
+                    'phase_name': 'Emergence',
+                    'duration_days': 21,
+                    'start_day': 0,
+                    'end_day': 21,
+                    'water_need_mm': 30,
+                    'trigger_mm': 25,
+                    'exit_mm': 5,
+                    'phase_weight': 0.15
+                },
+                {
+                    'phase_name': 'Vegetative',
+                    'duration_days': 35,
+                    'start_day': 21,
+                    'end_day': 56,
+                    'water_need_mm': 80,
+                    'trigger_mm': 60,
+                    'exit_mm': 15,
+                    'phase_weight': 0.25
+                },
+                {
+                    'phase_name': 'Flowering',
+                    'duration_days': 28,
+                    'start_day': 56,
+                    'end_day': 84,
+                    'water_need_mm': 100,
+                    'trigger_mm': 80,
+                    'exit_mm': 20,
+                    'phase_weight': 0.40
+                },
+                {
+                    'phase_name': 'Grain Fill',
+                    'duration_days': 36,
+                    'start_day': 84,
+                    'end_day': 120,
+                    'water_need_mm': 90,
+                    'trigger_mm': 70,
+                    'exit_mm': 10,
+                    'phase_weight': 0.20
+                }
+            ],
+            'sorghum': [
+                {
+                    'phase_name': 'Emergence',
+                    'duration_days': 14,
+                    'start_day': 0,
+                    'end_day': 14,
+                    'water_need_mm': 25,
+                    'trigger_mm': 20,
+                    'exit_mm': 3,
+                    'phase_weight': 0.20
+                },
+                {
+                    'phase_name': 'Vegetative',
+                    'duration_days': 42,
+                    'start_day': 14,
+                    'end_day': 56,
+                    'water_need_mm': 70,
+                    'trigger_mm': 50,
+                    'exit_mm': 10,
+                    'phase_weight': 0.30
+                },
+                {
+                    'phase_name': 'Flowering',
+                    'duration_days': 28,
+                    'start_day': 56,
+                    'end_day': 84,
+                    'water_need_mm': 80,
+                    'trigger_mm': 60,
+                    'exit_mm': 15,
+                    'phase_weight': 0.35
+                },
+                {
+                    'phase_name': 'Grain Fill',
+                    'duration_days': 36,
+                    'start_day': 84,
+                    'end_day': 120,
+                    'water_need_mm': 60,
+                    'trigger_mm': 45,
+                    'exit_mm': 8,
+                    'phase_weight': 0.15
+                }
+            ]
+        }
+        
+        # Built-in zone adjustments (no external dependency)
+        self.zone_adjustments = {
+            'aez_3_midlands': {
+                'risk_multiplier': 0.9,
+                'zone_name': 'AEZ 3 (Midlands)',
+                'description': 'Lower drought risk - higher rainfall'
+            },
+            'aez_4_masvingo': {
+                'risk_multiplier': 1.2,
+                'zone_name': 'AEZ 4 (Masvingo)',
+                'description': 'Higher drought risk - lower rainfall'
+            },
+            'default': {
+                'risk_multiplier': 1.0,
+                'zone_name': 'Standard Zone',
+                'description': 'Standard risk adjustment'
+            }
+        }
+        
+        # Supported crops
+        self.supported_crops = ['maize', 'sorghum', 'millet', 'groundnuts', 'soybeans']
+        
+        print("🔧 Quote Engine initialized (Fully Standalone)")
         print("🌱 Planting detection: Rainfall-only (no NDVI)")
         print("📊 Simulation: Detailed year-by-year analysis")
         print("🗓️ Season focus: Summer crops only (Oct-Jan planting)")
+        print("🔧 Dependencies: Zero external modules")
     
     def execute_quote(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -109,7 +216,7 @@ class QuoteEngine:
             
             execution_time = (datetime.now() - start_time).total_seconds()
             quote_result['execution_time_seconds'] = round(execution_time, 2)
-            quote_result['version'] = "2.1.0-Refined-Standalone"
+            quote_result['version'] = "2.1.0-Standalone"
             
             print(f"✅ Quote completed in {execution_time:.2f} seconds")
             print(f"💰 Premium rate: {quote_result['premium_rate']*100:.2f}%")
@@ -120,6 +227,19 @@ class QuoteEngine:
         except Exception as e:
             print(f"❌ Quote execution error: {e}")
             raise
+    
+    def _validate_crop(self, crop: str) -> None:
+        """Validate crop type"""
+        if crop not in self.supported_crops:
+            raise ValueError(f"Unsupported crop: {crop}. Supported crops: {', '.join(self.supported_crops)}")
+    
+    def _get_crop_phases(self, crop: str) -> List[Dict[str, Any]]:
+        """Get crop phases for specified crop"""
+        return self.crop_phases.get(crop, self.crop_phases['maize'])
+    
+    def _get_zone_adjustments(self, zone: str) -> Dict[str, Any]:
+        """Get zone adjustments"""
+        return self.zone_adjustments.get(zone, self.zone_adjustments['default'])
     
     def _detect_planting_dates_rainfall_only(self, latitude: float, longitude: float, 
                                            years: List[int]) -> Dict[int, Optional[str]]:
@@ -324,7 +444,7 @@ class QuoteEngine:
             Individual year analysis results
         """
         # Get crop phases
-        crop_phases = CROP_PHASES.get(params['crop'], CROP_PHASES['maize'])
+        crop_phases = self._get_crop_phases(params['crop'])
         
         # Calculate season end date
         plant_date = datetime.strptime(planting_date, '%Y-%m-%d')
@@ -336,7 +456,8 @@ class QuoteEngine:
             params['latitude'],
             params['longitude'],
             planting_date,
-            season_end.strftime('%Y-%m-%d')
+            season_end.strftime('%Y-%m-%d'),
+            params['crop']
         )
         
         # Simulate individual year premium rate
@@ -365,7 +486,7 @@ class QuoteEngine:
         }
     
     def _calculate_simplified_drought_impact(self, latitude: float, longitude: float,
-                                           planting_date: str, season_end: str) -> float:
+                                           planting_date: str, season_end: str, crop: str) -> float:
         """
         Calculate simplified drought impact based on rainfall
         
@@ -374,6 +495,7 @@ class QuoteEngine:
             longitude: Field longitude
             planting_date: Planting date
             season_end: Season end date
+            crop: Crop type
             
         Returns:
             Drought impact percentage (0-100)
@@ -396,18 +518,25 @@ class QuoteEngine:
             
             seasonal_total = total_rainfall.get('precipitation', 0)
             
-            # Simple drought impact calculation
-            # Assume 400mm is adequate seasonal rainfall for maize
-            adequate_rainfall = 400.0  # mm
+            # Crop-specific rainfall requirements
+            crop_requirements = {
+                'maize': 400.0,      # mm
+                'sorghum': 300.0,    # mm (more drought tolerant)
+                'millet': 250.0,     # mm (drought tolerant)
+                'groundnuts': 350.0, # mm
+                'soybeans': 450.0    # mm
+            }
+            
+            adequate_rainfall = crop_requirements.get(crop, 400.0)
             
             if seasonal_total >= adequate_rainfall:
                 drought_impact = 0.0
             else:
-                # Linear relationship: 0mm = 100% loss, 400mm = 0% loss
+                # Linear relationship: 0mm = 100% loss, adequate_rainfall = 0% loss
                 drought_impact = max(0, (adequate_rainfall - seasonal_total) / adequate_rainfall * 100)
                 drought_impact = min(drought_impact, 100.0)  # Cap at 100%
             
-            print(f"🌧️ Season rainfall: {seasonal_total:.1f}mm, Impact: {drought_impact:.1f}%")
+            print(f"🌧️ Season rainfall: {seasonal_total:.1f}mm (need: {adequate_rainfall:.0f}mm), Impact: {drought_impact:.1f}%")
             
             return drought_impact
             
@@ -441,7 +570,7 @@ class QuoteEngine:
         avg_payout = sum(y['simulated_payout'] for y in valid_years) / len(valid_years)
         
         # Apply zone adjustments
-        zone_adjustments = self._get_zone_adjustments(params)
+        zone_adjustments = self._get_zone_adjustments_for_params(params)
         final_premium_rate = avg_premium_rate * zone_adjustments.get('risk_multiplier', 1.0)
         
         # Calculate financial metrics
@@ -516,7 +645,7 @@ class QuoteEngine:
         Returns:
             Phase breakdown
         """
-        crop_phases = CROP_PHASES.get(crop, CROP_PHASES['maize'])
+        crop_phases = self._get_crop_phases(crop)
         enhanced_phases = []
         
         for i, phase_template in enumerate(crop_phases):
@@ -631,29 +760,17 @@ class QuoteEngine:
             # Auto-detect based on coordinates
             zone = self._auto_detect_zone(params['latitude'], params['longitude'])
         
-        try:
-            zone_adjustments = get_zone_adjustments(zone)
-            return zone_adjustments.get('risk_multiplier', 1.0)
-        except:
-            # Fallback if zones module has issues
-            return 1.0
+        zone_adjustments = self._get_zone_adjustments(zone)
+        return zone_adjustments.get('risk_multiplier', 1.0)
     
-    def _get_zone_adjustments(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _get_zone_adjustments_for_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Get comprehensive zone adjustments"""
         zone = params.get('zone', 'auto_detect')
         
         if zone == 'auto_detect':
             zone = self._auto_detect_zone(params['latitude'], params['longitude'])
         
-        try:
-            return get_zone_adjustments(zone)
-        except:
-            # Fallback if zones module has issues
-            return {
-                'risk_multiplier': 1.0,
-                'zone_name': 'Default Zone',
-                'description': 'Standard risk adjustment'
-            }
+        return self._get_zone_adjustments(zone)
     
     def _auto_detect_zone(self, latitude: float, longitude: float) -> str:
         """Auto-detect agro-ecological zone based on coordinates"""
@@ -701,12 +818,7 @@ class QuoteEngine:
         
         # Extract and validate other parameters
         crop = request_data.get('crop', 'maize').lower().strip()
-        try:
-            validate_crop(crop)
-        except:
-            # Fallback if crop validation fails
-            crop = 'maize'
-            print(f"⚠️ Warning: Crop validation failed, defaulting to maize")
+        self._validate_crop(crop)
         
         expected_yield = float(request_data['expected_yield'])
         price_per_ton = float(request_data['price_per_ton'])
