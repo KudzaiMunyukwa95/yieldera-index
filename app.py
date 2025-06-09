@@ -22,84 +22,13 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # 🔧 ENHANCED CORS Configuration - Fixed for production
-    CORS(app, 
-         origins=[
-             "https://yieldera.co.zw",           # Your production frontend
-             "https://yieldera.com",             # Alternative domain
-             "https://*.yieldera.com",           # Subdomains
-             "http://localhost:3000",            # Development React
-             "http://localhost:8080",            # Development Vue
-             "http://127.0.0.1:3000",           # Local development
-             "https://localhost:3000",           # HTTPS local development
-             "http://localhost:5173",            # Vite dev server
-             "http://localhost:4200"             # Angular dev server
-         ],
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-         allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-         supports_credentials=True,
-         resources={
-             r"/api/*": {
-                 "origins": "*",  # Allow all origins for API endpoints
-                 "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-                 "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
-             }
-         }
-    )
-    
-    # Add explicit OPTIONS handling for preflight requests
-    @app.before_request
-    def handle_preflight():
-        if request.method == "OPTIONS":
-            response = make_response()
-            origin = request.headers.get('Origin')
-            
-            # Allow specific origins
-            allowed_origins = [
-                "https://yieldera.co.zw",
-                "https://yieldera.com", 
-                "http://localhost:3000",
-                "http://localhost:8080",
-                "http://127.0.0.1:3000",
-                "http://localhost:5173",
-                "http://localhost:4200"
-            ]
-            
-            if origin in allowed_origins or origin and any(origin.endswith(domain) for domain in [".yieldera.com"]):
-                response.headers.add("Access-Control-Allow-Origin", origin)
-            else:
-                response.headers.add("Access-Control-Allow-Origin", "*")
-                
-            response.headers.add('Access-Control-Allow-Headers', "Content-Type,Authorization,X-Requested-With,Accept")
-            response.headers.add('Access-Control-Allow-Methods', "GET,POST,PUT,DELETE,OPTIONS")
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
-            return response
-
-    # Add CORS headers to all responses
-    @app.after_request
-    def after_request(response):
-        origin = request.headers.get('Origin')
-        allowed_origins = [
-            "https://yieldera.co.zw",
-            "https://yieldera.com",
-            "http://localhost:3000",
-            "http://localhost:8080", 
-            "http://127.0.0.1:3000",
-            "http://localhost:5173",
-            "http://localhost:4200"
-        ]
-        
-        if origin in allowed_origins or (origin and any(origin.endswith(domain) for domain in [".yieldera.com"])):
-            response.headers.add('Access-Control-Allow-Origin', origin)
-        else:
-            # For API endpoints, be more permissive
-            if request.path.startswith('/api/'):
-                response.headers.add('Access-Control-Allow-Origin', '*')
-                
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-        return response
+    # Replace the entire CORS section with this:
+if os.environ.get('FLASK_ENV') == 'development':
+    # Development - allow all
+    CORS(app, origins="*")
+else:
+    # Production - specific domain only
+    CORS(app, origins=["https://yieldera.co.zw"])
     
     # Initialize Earth Engine with better error handling
     gee_status = "❌ Not initialized"
