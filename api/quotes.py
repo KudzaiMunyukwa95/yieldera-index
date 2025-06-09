@@ -191,7 +191,7 @@ def field_based_quote(field_id):
         longitude = field_data.get('longitude')
         
         print(f"Raw latitude: {latitude} (type: {type(latitude)})")
-        print(f"Raw longitude: {longitude} (type: longitude)})")
+        print(f"Raw longitude: {longitude} (type: {type(longitude)})")
         
         if latitude is None:
             return jsonify({
