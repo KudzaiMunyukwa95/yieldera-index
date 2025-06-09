@@ -9,15 +9,15 @@ import time
 from datetime import datetime
 from typing import Dict, List, Any
 
-from core.refined_quote_engine import RefinedQuoteEngine  # Updated import
+from core.quote_engine import QuoteEngine  # Updated to use existing file
 from core.database import FieldsRepository, QuotesRepository
 from core.ai_summary import EnhancedAISummaryGenerator
 from core.crops import validate_crop, list_supported_crops
 
 quotes_bp = Blueprint('quotes', __name__)
 
-# Initialize components with refined engine
-refined_quote_engine = RefinedQuoteEngine()  # Updated engine
+# Initialize components with enhanced engine
+quote_engine = QuoteEngine()  # Updated to use existing class
 fields_repo = FieldsRepository()
 quotes_repo = QuotesRepository()
 enhanced_ai_generator = EnhancedAISummaryGenerator()
@@ -46,8 +46,8 @@ def historical_quote():
         
         print(f"🔍 Processing refined historical quote for year {data.get('year')}")
         
-        # Execute quote with refined engine
-        quote_result = refined_quote_engine.execute_quote(data)
+        # Execute quote with enhanced engine
+        quote_result = quote_engine.execute_quote(data)
         
         # Generate comprehensive report
         try:
@@ -133,8 +133,8 @@ def prospective_quote():
         
         print(f"🌱 Processing refined prospective quote for {target_year} season")
         
-        # Execute quote with refined engine
-        quote_result = refined_quote_engine.execute_quote(data)
+        # Execute quote with enhanced engine
+        quote_result = quote_engine.execute_quote(data)
         
         # Generate comprehensive report
         try:
@@ -276,8 +276,8 @@ def field_based_quote(field_id):
         print(f"📍 Coordinates: {latitude:.4f}, {longitude:.4f}")
         print(f"📏 Area: {area_ha} ha" if area_ha else "📏 Area: Not specified")
         
-        # Execute quote with refined engine
-        quote_result = refined_quote_engine.execute_quote(quote_request)
+        # Execute quote with enhanced engine
+        quote_result = quote_engine.execute_quote(quote_request)
         quote_result['field_info'] = quote_request['field_info']
         
         # Generate comprehensive report
@@ -393,8 +393,8 @@ def bulk_quote():
                         })
                         continue
                 
-                # Execute quote with refined engine
-                quote_result = refined_quote_engine.execute_quote(quote_request)
+                # Execute quote with enhanced engine
+                quote_result = quote_engine.execute_quote(quote_request)
                 successful_quotes.append(quote_result)
                 
                 # Generate individual comprehensive reports for bulk
@@ -581,7 +581,7 @@ def test_refined_features():
         print(f"🧪 Testing refined features with data: {test_quote_data}")
         
         # Execute refined quote
-        quote_result = refined_quote_engine.execute_quote(test_quote_data)
+        quote_result = quote_engine.execute_quote(test_quote_data)
         
         # Extract key refined features for testing
         refined_features = {
