@@ -259,8 +259,8 @@ def field_based_quote(field_id):
             'year': year,
             'loadings': data.get('loadings', {}),
             'zone': data.get('zone', 'auto_detect'),
-            'deductible_rate': data.get('deductible_rate'),
-            'deductible_threshold': data.get('deductible_threshold'),
+            'deductible_rate': data.get('deductible_rate', 0.05),  # Default 5%
+            'deductible_threshold': data.get('deductible_threshold', 0.0),  # Default 0%
             'buffer_radius': data.get('buffer_radius', 1500),
             'field_info': {
                 'type': 'field',
@@ -368,8 +368,8 @@ def test_coordinates():
             'year': 2024,
             'loadings': {},
             'zone': 'auto_detect',
-            'deductible_rate': 0.05,
-            'deductible_threshold': 0.0,
+            'deductible_rate': 0.05,  # Default 5%
+            'deductible_threshold': 0.0,  # Default 0%
             'buffer_radius': 1500,
             'field_info': {'type': 'test'}
         }
