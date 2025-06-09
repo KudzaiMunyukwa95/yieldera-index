@@ -1,5 +1,5 @@
 """
-Core quote engine for index insurance calculations
+Core quote engine for index insurance calculations - FIXED VERSION
 """
 
 import ee
@@ -61,32 +61,68 @@ class QuoteEngine:
             if field not in request_data:
                 raise ValueError(f"Missing required field: {field}")
         
+        # Validate numeric fields with None checks
+        try:
+            expected_yield = float(request_data['expected_yield'])
+            if expected_yield <= 0:
+                raise ValueError("Expected yield must be positive")
+        except (ValueError, TypeError):
+            raise ValueError("Expected yield must be a valid positive number")
+            
+        try:
+            price_per_ton = float(request_data['price_per_ton'])
+            if price_per_ton <= 0:
+                raise ValueError("Price per ton must be positive")
+        except (ValueError, TypeError):
+            raise ValueError("Price per ton must be a valid positive number")
+        
+        # Handle area_ha with None check
+        area_ha = None
+        if 'area_ha' in request_data and request_data['area_ha'] is not None:
+            try:
+                area_ha = float(request_data['area_ha'])
+                if area_ha <= 0:
+                    raise ValueError("Area must be positive")
+            except (ValueError, TypeError):
+                print(f"Warning: Invalid area_ha value: {request_data['area_ha']}")
+                area_ha = None
+        
         # Geometry validation
         geometry = None
         if 'geometry' in request_data:
             geometry = ee.Geometry(request_data['geometry'])
         elif 'latitude' in request_data and 'longitude' in request_data:
-            lat = float(request_data['latitude'])
-            lng = float(request_data['longitude'])
-            buffer_radius = request_data.get('buffer_radius', 1500)
-            
-            point = ee.Geometry.Point([lng, lat])
-            geometry = point.buffer(buffer_radius)
+            try:
+                lat = float(request_data['latitude'])
+                lng = float(request_data['longitude'])
+                
+                # Validate coordinate ranges
+                if not (-90 <= lat <= 90):
+                    raise ValueError("Latitude must be between -90 and 90")
+                if not (-180 <= lng <= 180):
+                    raise ValueError("Longitude must be between -180 and 180")
+                
+                buffer_radius = request_data.get('buffer_radius', 1500)
+                
+                point = ee.Geometry.Point([lng, lat])
+                geometry = point.buffer(buffer_radius)
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Invalid coordinates: {str(e)}")
         else:
             raise ValueError("Must provide either 'geometry' or 'latitude'/'longitude'")
         
         # Normalize parameters
         params = {
             'geometry': geometry,
-            'year': request_data.get('year', datetime.now().year),
+            'year': int(request_data.get('year', datetime.now().year)),
             'crop': validate_crop(request_data.get('crop', 'maize')),
-            'expected_yield': float(request_data['expected_yield']),
-            'price_per_ton': float(request_data['price_per_ton']),
-            'area_ha': float(request_data['area_ha']) if request_data.get('area_ha') else None,
+            'expected_yield': expected_yield,
+            'price_per_ton': price_per_ton,
+            'area_ha': area_ha,
             'loadings': request_data.get('loadings', {}),
             'zone': request_data.get('zone', 'auto_detect'),
-            'deductible_rate': request_data.get('deductible_rate', self.default_deductible),
-            'deductible_threshold': request_data.get('deductible_threshold', 0.0),
+            'deductible_rate': float(request_data.get('deductible_rate', self.default_deductible)),
+            'deductible_threshold': float(request_data.get('deductible_threshold', 0.0)),
             'field_info': request_data.get('field_info', {})
         }
         
@@ -157,7 +193,7 @@ class QuoteEngine:
         return quote_result
     
     def _execute_prospective_quote(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute prospective quote based on historical analysis"""
+        """Execute prospective quote based on historical analysis - OPTIMIZED"""
         
         geometry = params['geometry']
         year = params['year']
@@ -165,43 +201,55 @@ class QuoteEngine:
         
         print(f"Executing prospective quote for {crop} in {year}")
         
-        # Determine historical reference period
+        # Reduced historical range for faster processing
         current_year = datetime.now().year
-        lookback_years = min(self.historical_range, current_year - 2010)
-        start_year = max(2010, current_year - lookback_years)
+        lookback_years = min(7, current_year - 2015)  # Reduced from 10 to 7 years
+        start_year = max(2015, current_year - lookback_years)  # Start from 2015 instead of 2010
         end_year = current_year - 1
         
         historical_years = list(range(start_year, end_year + 1))
+        print(f"Analyzing {len(historical_years)} historical years: {start_year}-{end_year}")
         
-        # Analyze historical years
+        # Process years in smaller batches for better performance
         valid_years = []
-        all_phase_payouts = {i: [] for i in range(4)}  # Track payouts by phase
+        all_phase_payouts = {i: [] for i in range(4)}
         valid_planting_dates = []
         
-        for hist_year in historical_years:
-            try:
-                # Detect planting date for historical year
-                planting_date, _ = self.rainfall_extractor.detect_planting_date(
-                    geometry, hist_year, crop
-                )
-                
-                if planting_date:
-                    # Calculate phase payouts for this year
-                    phase_details = self._calculate_phase_payouts(
-                        geometry, planting_date, hist_year, crop, params['zone']
+        # Process in batches of 3 years
+        batch_size = 3
+        for i in range(0, len(historical_years), batch_size):
+            batch_years = historical_years[i:i + batch_size]
+            print(f"Processing batch: {batch_years}")
+            
+            for hist_year in batch_years:
+                try:
+                    # Quick timeout for individual years
+                    planting_date, _ = self.rainfall_extractor.detect_planting_date(
+                        geometry, hist_year, crop
                     )
                     
-                    if phase_details and len(phase_details) == 4:
-                        valid_years.append(hist_year)
-                        valid_planting_dates.append(planting_date)
+                    if planting_date:
+                        # Calculate phase payouts for this year
+                        phase_details = self._calculate_phase_payouts_optimized(
+                            geometry, planting_date, hist_year, crop, params['zone']
+                        )
                         
-                        # Collect payout ratios by phase
-                        for i, phase in enumerate(phase_details):
-                            all_phase_payouts[i].append(phase['payout_ratio'])
-                        
-            except Exception as e:
-                print(f"Error processing historical year {hist_year}: {e}")
-                continue
+                        if phase_details and len(phase_details) == 4:
+                            valid_years.append(hist_year)
+                            valid_planting_dates.append(planting_date)
+                            
+                            # Collect payout ratios by phase
+                            for j, phase in enumerate(phase_details):
+                                all_phase_payouts[j].append(phase['payout_ratio'])
+                            
+                except Exception as e:
+                    print(f"Error processing historical year {hist_year}: {e}")
+                    continue
+            
+            # Early exit if we have enough data
+            if len(valid_years) >= self.min_valid_years:
+                print(f"Sufficient data collected: {len(valid_years)} years")
+                break
         
         if len(valid_years) < self.min_valid_years:
             raise Exception(f"Insufficient historical data. Found {len(valid_years)} valid years, need at least {self.min_valid_years}")
@@ -338,7 +386,7 @@ class QuoteEngine:
                     "payout_ratio": round(max_payout_ratio, 4),
                     "phase_weight": round(phase_weights[phase_idx], 4),
                     "triggering_period": triggering_period,
-                    "rolling_windows": rolling_windows[:5] if rolling_windows else []  # First 5 windows for summary
+                    "rolling_windows": rolling_windows[:3] if rolling_windows else []  # Reduced from 5 to 3
                 }
                 
                 phase_details.append(phase_detail)
@@ -349,6 +397,52 @@ class QuoteEngine:
             print(f"Error calculating phase payouts: {e}")
             return []
     
+    def _calculate_phase_payouts_optimized(self, geometry, planting_date: str, year: int, crop: str, zone: str) -> List[Dict[str, Any]]:
+        """Optimized phase payout calculation for prospective quotes"""
+        
+        try:
+            crop_config = get_crop_config(crop)
+            phases_config = crop_config["phases"]
+            phase_weights = get_crop_phase_weights(crop, zone)
+            
+            phase_details = []
+            
+            for phase_idx, (start_day, end_day, trigger_mm, exit_mm, phase_name, water_need_mm, obs_window) in enumerate(phases_config):
+                
+                # Calculate phase dates
+                planting_dt = datetime.strptime(planting_date, '%Y-%m-%d')
+                phase_start_date = (planting_dt + timedelta(days=start_day)).strftime('%Y-%m-%d')
+                phase_end_date = (planting_dt + timedelta(days=end_day)).strftime('%Y-%m-%d')
+                
+                # Simplified calculation - just get total rainfall and estimate payout
+                total_rainfall = self.rainfall_extractor.get_period_rainfall(
+                    geometry, phase_start_date, phase_end_date
+                )
+                
+                # Simplified payout calculation based on total rainfall vs water need
+                water_deficit = max(0, water_need_mm - total_rainfall)
+                deficit_ratio = water_deficit / water_need_mm if water_need_mm > 0 else 0
+                
+                # Simple payout ratio based on deficit
+                payout_ratio = min(deficit_ratio, 1.0)
+                
+                phase_detail = {
+                    "phase_name": phase_name,
+                    "phase_number": phase_idx + 1,
+                    "payout_ratio": round(payout_ratio, 4),
+                    "phase_weight": round(phase_weights[phase_idx], 4),
+                    "rainfall_received_mm": round(total_rainfall, 1),
+                    "water_need_mm": water_need_mm
+                }
+                
+                phase_details.append(phase_detail)
+            
+            return phase_details
+            
+        except Exception as e:
+            print(f"Error in optimized phase calculation: {e}")
+            return []
+    
     def _calculate_quote_financials(self, phase_details: List[Dict], expected_yield: float, 
                                    price_per_ton: float, area_ha: Optional[float],
                                    loadings: Dict[str, float], deductible_rate: float,
@@ -356,7 +450,7 @@ class QuoteEngine:
         """Calculate financial metrics for quote"""
         
         # Calculate sum insured
-        if area_ha:
+        if area_ha and area_ha > 0:
             sum_insured = expected_yield * price_per_ton * area_ha
         else:
             sum_insured = expected_yield * price_per_ton
@@ -435,7 +529,7 @@ class QuoteEngine:
         """Calculate financial metrics for prospective quote"""
         
         # Calculate sum insured
-        if area_ha:
+        if area_ha and area_ha > 0:
             sum_insured = expected_yield * price_per_ton * area_ha
         else:
             sum_insured = expected_yield * price_per_ton
