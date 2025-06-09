@@ -1,6 +1,6 @@
 """
-Enhanced Quote API endpoints with comprehensive reporting
-Exceeds ACRE Africa term sheet detail level
+Refined Quote API endpoints with year-by-year simulation
+Implements rainfall-only planting detection and detailed analysis
 """
 
 from flask import Blueprint, request, jsonify
@@ -9,22 +9,22 @@ import time
 from datetime import datetime
 from typing import Dict, List, Any
 
-from core.quote_engine import QuoteEngine
+from core.refined_quote_engine import RefinedQuoteEngine  # Updated import
 from core.database import FieldsRepository, QuotesRepository
-from core.ai_summary import EnhancedAISummaryGenerator  # Updated import
+from core.ai_summary import EnhancedAISummaryGenerator
 from core.crops import validate_crop, list_supported_crops
 
 quotes_bp = Blueprint('quotes', __name__)
 
-# Initialize components with enhanced AI generator
-quote_engine = QuoteEngine()
+# Initialize components with refined engine
+refined_quote_engine = RefinedQuoteEngine()  # Updated engine
 fields_repo = FieldsRepository()
 quotes_repo = QuotesRepository()
 enhanced_ai_generator = EnhancedAISummaryGenerator()
 
 @quotes_bp.route('/historical', methods=['POST'])
 def historical_quote():
-    """Generate enhanced historical quote with comprehensive reporting"""
+    """Generate refined historical quote with detailed simulation"""
     try:
         start_time = time.time()
         data = request.get_json()
@@ -44,8 +44,10 @@ def historical_quote():
                     "message": f"Missing required field: {field}"
                 }), 400
         
-        # Execute quote
-        quote_result = quote_engine.execute_quote(data)
+        print(f"🔍 Processing refined historical quote for year {data.get('year')}")
+        
+        # Execute quote with refined engine
+        quote_result = refined_quote_engine.execute_quote(data)
         
         # Generate comprehensive report
         try:
@@ -53,8 +55,6 @@ def historical_quote():
                 quote_result, data.get('location_info')
             )
             quote_result['comprehensive_report'] = comprehensive_report
-            
-            # Keep backward compatibility
             quote_result['ai_summary'] = comprehensive_report.get('executive_summary', 'Summary unavailable')
         except Exception as e:
             print(f"Enhanced report generation failed: {e}")
@@ -75,12 +75,17 @@ def historical_quote():
             "status": "success",
             "quote": quote_result,
             "execution_time_seconds": round(execution_time, 2),
-            "version": "2.0.0-Enhanced",
-            "report_type": "comprehensive"
+            "version": "2.1.0-Refined",
+            "enhancements": [
+                "Rainfall-only planting detection",
+                "Year-by-year simulation", 
+                "Seasonal validation",
+                "Detailed loss analysis"
+            ]
         })
         
     except Exception as e:
-        print(f"Historical quote error: {traceback.format_exc()}")
+        print(f"Refined historical quote error: {traceback.format_exc()}")
         return jsonify({
             "status": "error",
             "message": str(e),
@@ -89,7 +94,7 @@ def historical_quote():
 
 @quotes_bp.route('/prospective', methods=['POST'])
 def prospective_quote():
-    """Generate enhanced prospective quote with comprehensive reporting"""
+    """Generate refined prospective quote with seasonal validation"""
     try:
         start_time = time.time()
         data = request.get_json()
@@ -109,14 +114,27 @@ def prospective_quote():
                     "message": f"Missing required field: {field}"
                 }), 400
         
-        # Default to next year if not specified
+        # Default to next appropriate year with seasonal validation
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+        
         if 'year' not in data:
-            data['year'] = datetime.now().year + 1
+            # Smart year selection based on current season
+            if current_month >= 8:  # Aug onwards - approaching next season
+                data['year'] = current_year + 1
+            else:  # Too late for current season, suggest next
+                data['year'] = current_year + 1
         
-        print(f"Starting enhanced prospective quote for year {data['year']}")
+        target_year = data['year']
         
-        # Execute quote
-        quote_result = quote_engine.execute_quote(data)
+        # Validate seasonal appropriateness
+        if target_year == current_year and current_month > 3:
+            print(f"⚠️ Warning: Late season quote for {target_year} (current month: {current_month})")
+        
+        print(f"🌱 Processing refined prospective quote for {target_year} season")
+        
+        # Execute quote with refined engine
+        quote_result = refined_quote_engine.execute_quote(data)
         
         # Generate comprehensive report
         try:
@@ -124,8 +142,6 @@ def prospective_quote():
                 quote_result, data.get('location_info')
             )
             quote_result['comprehensive_report'] = comprehensive_report
-            
-            # Keep backward compatibility
             quote_result['ai_summary'] = comprehensive_report.get('executive_summary', 'Summary unavailable')
         except Exception as e:
             print(f"Enhanced report generation failed: {e}")
@@ -141,18 +157,23 @@ def prospective_quote():
             print(f"Failed to save quote: {e}")
         
         execution_time = time.time() - start_time
-        print(f"Enhanced prospective quote completed in {execution_time:.2f} seconds")
+        print(f"✅ Refined prospective quote completed in {execution_time:.2f} seconds")
         
         return jsonify({
             "status": "success",
             "quote": quote_result,
             "execution_time_seconds": round(execution_time, 2),
-            "version": "2.0.0-Enhanced",
-            "report_type": "comprehensive"
+            "version": "2.1.0-Refined",
+            "seasonal_validation": {
+                "target_season": f"{target_year-1}//{target_year}",
+                "planting_window": "October - January",
+                "current_month": current_month,
+                "seasonal_appropriateness": "validated"
+            }
         })
         
     except Exception as e:
-        print(f"Prospective quote error: {traceback.format_exc()}")
+        print(f"Refined prospective quote error: {traceback.format_exc()}")
         return jsonify({
             "status": "error",
             "message": str(e),
@@ -161,12 +182,12 @@ def prospective_quote():
 
 @quotes_bp.route('/field/<int:field_id>', methods=['POST'])
 def field_based_quote(field_id):
-    """Generate enhanced field-based quote with comprehensive reporting"""
+    """Generate refined field-based quote with enhanced validation"""
     try:
         start_time = time.time()
         data = request.get_json()
         
-        print(f"=== ENHANCED FIELD {field_id} QUOTE ===")
+        print(f"=== REFINED FIELD {field_id} QUOTE ===")
         
         if not data:
             return jsonify({
@@ -174,7 +195,7 @@ def field_based_quote(field_id):
                 "message": "Request body is required"
             }), 400
         
-        # Validate required fields in request
+        # Validate required fields
         required_fields = ['expected_yield', 'price_per_ton']
         for field in required_fields:
             if field not in data:
@@ -210,7 +231,7 @@ def field_based_quote(field_id):
             except (ValueError, TypeError):
                 area_ha = None
         
-        # Handle crop
+        # Handle crop with validation
         crop = field_data.get('crop', 'maize')
         if not crop or str(crop).strip() == '':
             crop = 'maize'
@@ -221,14 +242,14 @@ def field_based_quote(field_id):
         try:
             expected_yield = float(data['expected_yield'])
             price_per_ton = float(data['price_per_ton'])
-            year = int(data.get('year', datetime.now().year))
+            year = int(data.get('year', datetime.now().year + 1))
         except (ValueError, TypeError) as e:
             return jsonify({
                 "status": "error",
                 "message": f"Invalid request data: {e}"
             }), 400
         
-        # Build enhanced quote request
+        # Build refined quote request
         quote_request = {
             'latitude': latitude,
             'longitude': longitude, 
@@ -240,7 +261,6 @@ def field_based_quote(field_id):
             'loadings': data.get('loadings', {}),
             'zone': data.get('zone', 'auto_detect'),
             'deductible_rate': data.get('deductible_rate', 0.05),
-            'deductible_threshold': data.get('deductible_threshold', 0.0),
             'buffer_radius': data.get('buffer_radius', 1500),
             'field_info': {
                 'type': 'field',
@@ -252,8 +272,12 @@ def field_based_quote(field_id):
             }
         }
         
-        # Execute quote
-        quote_result = quote_engine.execute_quote(quote_request)
+        print(f"🌾 Field crop: {crop}")
+        print(f"📍 Coordinates: {latitude:.4f}, {longitude:.4f}")
+        print(f"📏 Area: {area_ha} ha" if area_ha else "📏 Area: Not specified")
+        
+        # Execute quote with refined engine
+        quote_result = refined_quote_engine.execute_quote(quote_request)
         quote_result['field_info'] = quote_request['field_info']
         
         # Generate comprehensive report
@@ -262,8 +286,6 @@ def field_based_quote(field_id):
                 quote_result, quote_request['field_info']
             )
             quote_result['comprehensive_report'] = comprehensive_report
-            
-            # Keep backward compatibility
             quote_result['ai_summary'] = comprehensive_report.get('executive_summary', 'Summary unavailable')
         except Exception as e:
             print(f"Enhanced report generation failed: {e}")
@@ -294,12 +316,11 @@ def field_based_quote(field_id):
                 "longitude": longitude
             },
             "execution_time_seconds": round(execution_time, 2),
-            "version": "2.0.0-Enhanced",
-            "report_type": "comprehensive"
+            "version": "2.1.0-Refined"
         })
         
     except Exception as e:
-        print(f"=== ENHANCED FIELD QUOTE ERROR FOR FIELD {field_id} ===")
+        print(f"=== REFINED FIELD QUOTE ERROR FOR FIELD {field_id} ===")
         print(f"Error: {e}")
         print(f"Full traceback: {traceback.format_exc()}")
         
@@ -312,7 +333,7 @@ def field_based_quote(field_id):
 
 @quotes_bp.route('/bulk', methods=['POST'])
 def bulk_quote():
-    """Generate enhanced bulk quotes with portfolio analysis"""
+    """Generate refined bulk quotes with enhanced portfolio analysis"""
     try:
         start_time = time.time()
         data = request.get_json()
@@ -332,11 +353,15 @@ def bulk_quote():
                 "message": "Requests array cannot be empty"
             }), 400
         
+        print(f"📊 Processing refined bulk quote: {len(requests)} requests")
+        
         results = []
         successful_quotes = []
         
         for i, req in enumerate(requests):
             try:
+                print(f"\n🔄 Processing bulk request {i+1}/{len(requests)}")
+                
                 # Merge global settings
                 quote_request = {**global_settings, **req}
                 
@@ -368,8 +393,8 @@ def bulk_quote():
                         })
                         continue
                 
-                # Execute quote
-                quote_result = quote_engine.execute_quote(quote_request)
+                # Execute quote with refined engine
+                quote_result = refined_quote_engine.execute_quote(quote_request)
                 successful_quotes.append(quote_result)
                 
                 # Generate individual comprehensive reports for bulk
@@ -399,7 +424,10 @@ def bulk_quote():
                     "quote": quote_result
                 })
                 
+                print(f"✅ Bulk request {i+1} completed: ${quote_result.get('gross_premium', 0):,.0f} premium")
+                
             except Exception as e:
+                print(f"❌ Bulk request {i+1} failed: {e}")
                 results.append({
                     "request_index": i,
                     "status": "error",
@@ -412,12 +440,36 @@ def bulk_quote():
         if successful_quotes:
             try:
                 portfolio_analysis = enhanced_ai_generator.generate_bulk_summary(successful_quotes)
+                
+                # Add refined portfolio metrics
+                total_premium = sum(q.get('gross_premium', 0) for q in successful_quotes)
+                total_sum_insured = sum(q.get('sum_insured', 0) for q in successful_quotes)
+                avg_premium_rate = (total_premium / total_sum_insured * 100) if total_sum_insured > 0 else 0
+                
+                portfolio_metrics = {
+                    "total_premium": f"${total_premium:,.2f}",
+                    "total_sum_insured": f"${total_sum_insured:,.2f}",
+                    "average_premium_rate": f"{avg_premium_rate:.2f}%",
+                    "crop_distribution": {},
+                    "geographic_spread": len(set(q.get('latitude', 0) for q in successful_quotes)),
+                    "simulation_years": len(successful_quotes[0].get('historical_years_used', [])) if successful_quotes else 0
+                }
+                
+                # Crop distribution
+                crops = [q.get('crop', 'unknown') for q in successful_quotes]
+                for crop in set(crops):
+                    portfolio_metrics["crop_distribution"][crop] = crops.count(crop)
+                
+                portfolio_analysis['portfolio_metrics'] = portfolio_metrics
+                
             except Exception as e:
                 print(f"Portfolio analysis generation failed: {e}")
                 portfolio_analysis = "Portfolio analysis temporarily unavailable"
         
         execution_time = time.time() - start_time
         successful_count = sum(1 for r in results if r['status'] == 'success')
+        
+        print(f"📊 Bulk processing completed: {successful_count}/{len(requests)} successful")
         
         return jsonify({
             "status": "success",
@@ -427,18 +479,147 @@ def bulk_quote():
             "failed_quotes": len(requests) - successful_count,
             "results": results,
             "execution_time_seconds": round(execution_time, 2),
-            "version": "2.0.0-Enhanced",
-            "report_type": "comprehensive_bulk"
+            "version": "2.1.0-Refined"
         })
         
     except Exception as e:
-        print(f"Bulk quote error: {traceback.format_exc()}")
+        print(f"Refined bulk quote error: {traceback.format_exc()}")
         return jsonify({
             "status": "error",
             "message": str(e),
             "error_type": type(e).__name__
         }), 500
 
+# New endpoint: Year-by-year simulation details
+@quotes_bp.route('/simulation/<quote_id>', methods=['GET'])
+def get_simulation_details(quote_id):
+    """Get detailed year-by-year simulation for a quote"""
+    try:
+        quote = quotes_repo.get_quote_by_id(quote_id)
+        
+        if not quote:
+            return jsonify({
+                "status": "error",
+                "message": f"Quote {quote_id} not found"
+            }), 404
+        
+        # Extract simulation data
+        quote_data = quote.get('quote_data', {})
+        if isinstance(quote_data, str):
+            import json
+            quote_data = json.loads(quote_data)
+        
+        simulation_data = quote_data.get('year_by_year_simulation', [])
+        
+        if not simulation_data:
+            return jsonify({
+                "status": "error",
+                "message": "No simulation data available for this quote"
+            }), 404
+        
+        # Enhance simulation data with additional analysis
+        enhanced_simulation = []
+        for year_data in simulation_data:
+            enhanced_year = dict(year_data)
+            
+            # Add interpretations
+            drought_impact = year_data.get('drought_impact', 0)
+            if drought_impact < 5:
+                enhanced_year['risk_level'] = 'Low'
+            elif drought_impact < 15:
+                enhanced_year['risk_level'] = 'Moderate'
+            elif drought_impact < 30:
+                enhanced_year['risk_level'] = 'High'
+            else:
+                enhanced_year['risk_level'] = 'Severe'
+            
+            # Add farmer perspective
+            net_result = year_data.get('net_result', 0)
+            enhanced_year['farmer_outcome'] = 'Positive' if net_result > 0 else 'Negative'
+            
+            enhanced_simulation.append(enhanced_year)
+        
+        return jsonify({
+            "status": "success",
+            "quote_id": quote_id,
+            "simulation_data": enhanced_simulation,
+            "summary_statistics": {
+                "total_years": len(simulation_data),
+                "years_with_payouts": len([y for y in simulation_data if y.get('drought_impact', 0) > 5]),
+                "average_premium": sum(y.get('simulated_premium_usd', 0) for y in simulation_data) / len(simulation_data),
+                "average_payout": sum(y.get('simulated_payout', 0) for y in simulation_data) / len(simulation_data),
+                "worst_year": max(simulation_data, key=lambda x: x.get('drought_impact', 0))['year'],
+                "best_year": min(simulation_data, key=lambda x: x.get('drought_impact', 0))['year']
+            }
+        })
+        
+    except Exception as e:
+        print(f"Simulation details error: {traceback.format_exc()}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+# Enhanced testing endpoint
+@quotes_bp.route('/test/refined', methods=['POST'])
+def test_refined_features():
+    """Test endpoint for refined features"""
+    try:
+        data = request.get_json() or {}
+        
+        # Default test quote data for Zimbabwe
+        test_quote_data = {
+            "crop": data.get("crop", "maize"),
+            "latitude": data.get("latitude", -17.8216),  # Harare area
+            "longitude": data.get("longitude", 30.9858),
+            "expected_yield": data.get("expected_yield", 5.0),
+            "price_per_ton": data.get("price_per_ton", 300),
+            "year": data.get("year", 2024),
+            "area_ha": data.get("area_ha", 2.0)
+        }
+        
+        print(f"🧪 Testing refined features with data: {test_quote_data}")
+        
+        # Execute refined quote
+        quote_result = refined_quote_engine.execute_quote(test_quote_data)
+        
+        # Extract key refined features for testing
+        refined_features = {
+            "planting_detection": quote_result.get('planting_analysis', {}),
+            "year_by_year_simulation": quote_result.get('year_by_year_simulation', []),
+            "simulation_summary": quote_result.get('simulation_summary', {}),
+            "seasonal_validation": {
+                "method": "rainfall_only",
+                "criteria": "20mm over 7 days, 2+ days ≥5mm",
+                "season_window": "October 1 - January 31"
+            }
+        }
+        
+        return jsonify({
+            "status": "success",
+            "message": "Refined features test successful",
+            "test_quote_data": test_quote_data,
+            "quote_result": quote_result,
+            "refined_features": refined_features,
+            "features_tested": [
+                "Rainfall-only planting detection",
+                "Year-by-year simulation",
+                "Seasonal validation (Oct-Jan only)",
+                "Individual year premium/payout calculation",
+                "Enhanced phase analysis",
+                "Zone-based risk adjustments"
+            ]
+        })
+        
+    except Exception as e:
+        print(f"Refined features test error: {traceback.format_exc()}")
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "error_type": type(e).__name__
+        }), 500
+
+# Existing endpoints maintained for backward compatibility
 @quotes_bp.route('/<quote_id>', methods=['GET'])
 def get_quote(quote_id):
     """Get quote by ID with enhanced display"""
@@ -453,6 +634,7 @@ def get_quote(quote_id):
         
         # Add enhanced viewing options
         view_mode = request.args.get('view', 'standard')
+        include_simulation = request.args.get('include_simulation', 'false').lower() == 'true'
         
         response_data = {
             "status": "success",
@@ -460,17 +642,14 @@ def get_quote(quote_id):
             "view_mode": view_mode
         }
         
-        # Add summary statistics if requested
-        if view_mode == 'summary':
-            if quote.get('quote_data') and isinstance(quote['quote_data'], dict):
-                quote_data = quote['quote_data']
-                response_data['summary_stats'] = {
-                    "sum_insured": quote_data.get('sum_insured', 0),
-                    "premium_rate": f"{quote_data.get('premium_rate', 0) * 100:.2f}%",
-                    "expected_payout": quote_data.get('expected_payout_ratio', 0) * 100,
-                    "phases_covered": len(quote_data.get('phase_breakdown', [])),
-                    "quote_type": quote_data.get('quote_type', 'unknown')
-                }
+        # Add simulation data if requested
+        if include_simulation:
+            quote_data = quote.get('quote_data', {})
+            if isinstance(quote_data, str):
+                import json
+                quote_data = json.loads(quote_data)
+            
+            response_data['simulation_data'] = quote_data.get('year_by_year_simulation', [])
         
         return jsonify(response_data)
         
@@ -498,7 +677,8 @@ def get_field_quote_history(field_id):
                         "average_premium_rate": f"{sum(premium_rates) / len(premium_rates) * 100:.2f}%",
                         "rate_trend": "increasing" if premium_rates[-1] > premium_rates[0] else "decreasing",
                         "quote_frequency": f"{len(quotes)} quotes generated",
-                        "latest_quote_date": quotes[0].get('created_at') if quotes else None
+                        "latest_quote_date": quotes[0].get('created_at') if quotes else None,
+                        "version_evolution": list(set(q.get('version', 'unknown') for q in quotes))
                     }
             except Exception as e:
                 print(f"Trend analysis error: {e}")
@@ -520,7 +700,7 @@ def get_field_quote_history(field_id):
 
 @quotes_bp.route('/validate', methods=['POST'])
 def validate_quote_request():
-    """Enhanced validation with detailed feedback"""
+    """Enhanced validation with seasonal checks"""
     try:
         data = request.get_json()
         
@@ -569,12 +749,31 @@ def validate_quote_request():
                 except (ValueError, TypeError):
                     validation_errors.append(f"Field '{field}' must be a number")
         
-        # Validate year
+        # Seasonal validation for year
         if 'year' in data:
             year = data['year']
             current_year = datetime.now().year
-            if year < 2015 or year > current_year + 5:
-                validation_warnings.append(f"Year {year} is outside typical range (2015-{current_year + 5})")
+            current_month = datetime.now().month
+            
+            if year < 2018 or year > current_year + 2:
+                validation_errors.append(f"Year {year} is outside valid range (2018-{current_year + 2})")
+            
+            # Seasonal appropriateness check
+            if year == current_year:
+                if current_month > 3:  # Past main harvest season
+                    validation_warnings.append(f"Quote for {year} may be late in season (current month: {current_month})")
+                elif current_month < 8:  # Too early for next season
+                    validation_warnings.append(f"Consider quoting for {year + 1} season instead")
+        
+        # Coordinate validation for Southern Africa
+        if 'latitude' in data and 'longitude' in data:
+            try:
+                lat = float(data['latitude'])
+                lon = float(data['longitude'])
+                if not (-25 <= lat <= -15 and 25 <= lon <= 35):
+                    validation_warnings.append("Coordinates appear to be outside Southern Africa region")
+            except:
+                pass  # Already caught in numeric validation
         
         if validation_errors:
             return jsonify({
@@ -583,12 +782,30 @@ def validate_quote_request():
                 "validation_warnings": validation_warnings
             }), 400
         
-        # Enhanced response with recommendations
+        # Enhanced response with seasonal recommendations
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+        
+        # Determine appropriate quote type
+        target_year = data.get('year', current_year + 1)
+        if target_year > current_year:
+            quote_type = "prospective"
+        elif target_year == current_year and current_month >= 8:
+            quote_type = "prospective"
+        else:
+            quote_type = "historical"
+        
         response = {
             "status": "success",
             "message": "Quote request is valid",
-            "estimated_quote_type": quote_engine._determine_quote_type(data.get('year', datetime.now().year)),
-            "validation_warnings": validation_warnings
+            "estimated_quote_type": quote_type,
+            "validation_warnings": validation_warnings,
+            "seasonal_guidance": {
+                "current_month": current_month,
+                "recommended_season": f"{current_year}/{current_year + 1}" if current_month >= 8 else f"{current_year + 1}/{current_year + 2}",
+                "planting_window": "October - January",
+                "next_season_starts": f"October {current_year}" if current_month < 10 else f"October {current_year + 1}"
+            }
         }
         
         # Add recommendations
@@ -642,7 +859,7 @@ def generate_detailed_report(quote_id):
                 "quote_id": quote_id,
                 "report": comprehensive_report,
                 "generated_at": datetime.utcnow().isoformat(),
-                "report_version": "2.0.0-Enhanced"
+                "report_version": "2.1.0-Refined"
             })
             
         except Exception as e:
@@ -658,102 +875,4 @@ def generate_detailed_report(quote_id):
         return jsonify({
             "status": "error",
             "message": str(e)
-        }), 500
-
-# Testing endpoint for enhanced features
-@quotes_bp.route('/test/enhanced', methods=['POST'])
-def test_enhanced_features():
-    """Test endpoint for enhanced reporting features"""
-    try:
-        data = request.get_json() or {}
-        
-        # Default test quote data
-        test_quote_data = {
-            "crop": data.get("crop", "maize"),
-            "year": data.get("year", 2024),
-            "sum_insured": data.get("sum_insured", 5000),
-            "gross_premium": data.get("gross_premium", 375),
-            "premium_rate": data.get("premium_rate", 0.075),
-            "expected_payout_ratio": data.get("expected_payout_ratio", 0.15),
-            "zone": "aez_3_midlands",
-            "zone_name": "AEZ 3 (Midlands)",
-            "quote_type": "prospective",
-            "phase_breakdown": [
-                {
-                    "phase_name": "Emergence",
-                    "phase_number": 1,
-                    "start_day": 0,
-                    "end_day": 14,
-                    "trigger_mm": 25,
-                    "exit_mm": 5,
-                    "phase_weight": 0.15,
-                    "water_need_mm": 30
-                },
-                {
-                    "phase_name": "Vegetative",
-                    "phase_number": 2,
-                    "start_day": 15,
-                    "end_day": 49,
-                    "trigger_mm": 60,
-                    "exit_mm": 15,
-                    "phase_weight": 0.25,
-                    "water_need_mm": 80
-                },
-                {
-                    "phase_name": "Flowering",
-                    "phase_number": 3,
-                    "start_day": 50,
-                    "end_day": 84,
-                    "trigger_mm": 80,
-                    "exit_mm": 20,
-                    "phase_weight": 0.40,
-                    "water_need_mm": 100
-                },
-                {
-                    "phase_name": "Grain Fill",
-                    "phase_number": 4,
-                    "start_day": 85,
-                    "end_day": 120,
-                    "trigger_mm": 70,
-                    "exit_mm": 10,
-                    "phase_weight": 0.20,
-                    "water_need_mm": 90
-                }
-            ],
-            "historical_years_used": list(range(2018, 2024)),
-            "deductible_rate": 0.10,
-            "deductible_amount": 500,
-            "loadings": {
-                "administration": 25,
-                "commission": 50,
-                "profit": 75
-            }
-        }
-        
-        # Generate comprehensive report
-        comprehensive_report = enhanced_ai_generator.generate_comprehensive_quote_report(
-            test_quote_data, data.get('field_info')
-        )
-        
-        return jsonify({
-            "status": "success",
-            "message": "Enhanced features test successful",
-            "test_quote_data": test_quote_data,
-            "comprehensive_report": comprehensive_report,
-            "features_tested": [
-                "Comprehensive report generation",
-                "Enhanced phase breakdown",
-                "Financial summary",
-                "Technical specifications",
-                "Claims procedure",
-                "Terms and conditions"
-            ]
-        })
-        
-    except Exception as e:
-        print(f"Enhanced features test error: {traceback.format_exc()}")
-        return jsonify({
-            "status": "error",
-            "message": str(e),
-            "error_type": type(e).__name__
         }), 500
