@@ -1,11 +1,10 @@
 """
 Yieldera Index Insurance Engine - Enhanced Application V2.2.0
 Enhanced backend with rainfall-only planting detection, year-by-year simulation,
-dynamic deductibles, custom loadings, and proper CORS configuration
+dynamic deductibles, custom loadings, and RELIABLE CORS configuration
 """
 
 from flask import Flask, jsonify, request, make_response
-from flask_cors import CORS
 import os
 import traceback
 from datetime import datetime
@@ -18,17 +17,66 @@ from api.fields import fields_bp
 from api.health import health_bp
 
 def create_app():
-    """Application factory pattern with enhanced features and CORS fixes"""
+    """Application factory pattern with enhanced features and RELIABLE CORS"""
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Replace the entire CORS section with this:
-if os.environ.get('FLASK_ENV') == 'development':
-    # Development - allow all
-    CORS(app, origins="*")
-else:
-    # Production - specific domain only
-    CORS(app, origins=["https://yieldera.co.zw"])
+    # 🔧 MANUAL CORS CONFIGURATION (Most Reliable - No Flask-CORS conflicts)
+    @app.after_request
+    def after_request(response):
+        origin = request.headers.get('Origin')
+        
+        # Define allowed origins
+        allowed_origins = [
+            'https://yieldera.co.zw',
+            'https://yieldera.com',
+            'http://localhost:3000',
+            'http://localhost:8080',
+            'http://127.0.0.1:3000',
+            'http://localhost:5173',
+            'http://localhost:4200'
+        ]
+        
+        # Allow specific origins only
+        if origin in allowed_origins:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+        
+        # Always add these headers
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization,X-Requested-With,Accept'
+        response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
+        
+        return response
+
+    @app.before_request
+    def handle_options():
+        """Handle preflight OPTIONS requests"""
+        if request.method == "OPTIONS":
+            origin = request.headers.get('Origin')
+            
+            # Define allowed origins
+            allowed_origins = [
+                'https://yieldera.co.zw',
+                'https://yieldera.com', 
+                'http://localhost:3000',
+                'http://localhost:8080',
+                'http://127.0.0.1:3000',
+                'http://localhost:5173',
+                'http://localhost:4200'
+            ]
+            
+            response = make_response()
+            
+            # Only set CORS headers for allowed origins
+            if origin in allowed_origins:
+                response.headers['Access-Control-Allow-Origin'] = origin
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+            
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization,X-Requested-With,Accept'
+            response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
+            response.headers['Access-Control-Max-Age'] = '86400'  # Cache preflight for 24 hours
+            
+            return response
     
     # Initialize Earth Engine with better error handling
     gee_status = "❌ Not initialized"
@@ -57,7 +105,7 @@ else:
             "message": "Enhanced agricultural index insurance platform for Southern Africa",
             "system_status": {
                 "google_earth_engine": gee_status,
-                "cors_enabled": "✅ Configured for production",
+                "cors_enabled": "✅ Manual CORS (Most Reliable)",
                 "quote_engine": "✅ V2.2.0 Enhanced",
                 "field_management": "✅ Active"
             },
@@ -163,10 +211,12 @@ else:
                 "auto_detect": "GPS-based zone detection"
             },
             "cors_configuration": {
+                "method": "Manual CORS (most reliable)",
                 "production_domain": "https://yieldera.co.zw",
                 "development_support": "localhost:3000, localhost:8080, localhost:5173",
                 "preflight_handling": "Full OPTIONS support",
-                "credentials_support": "Enabled"
+                "credentials_support": "Enabled for allowed origins",
+                "no_conflicts": "No Flask-CORS library conflicts"
             }
         })
     
@@ -183,7 +233,7 @@ else:
                     "google_earth_engine": gee_status,
                     "quote_engine": "✅ V2.2.0 Enhanced Active",
                     "field_management": "✅ Active",
-                    "cors_enabled": "✅ Production Ready"
+                    "cors_enabled": "✅ Manual CORS Active"
                 },
                 "endpoints_status": {
                     "quotes": "✅ All endpoints operational",
@@ -202,6 +252,18 @@ else:
                     "chirps_rainfall": "✅ Satellite data access",
                     "crop_phenology": "✅ Enhanced crop models",
                     "zone_detection": "✅ AEZ classification"
+                },
+                "cors_details": {
+                    "method": "Manual implementation",
+                    "allowed_origins": [
+                        "https://yieldera.co.zw",
+                        "https://yieldera.com",
+                        "http://localhost:3000",
+                        "http://localhost:8080",
+                        "http://localhost:5173",
+                        "http://localhost:4200"
+                    ],
+                    "conflict_free": "No Flask-CORS conflicts"
                 },
                 "performance": {
                     "quote_generation": "~10-15 seconds",
@@ -222,7 +284,7 @@ else:
             }
             return jsonify(error_response), 500
     
-    # Enhanced error handlers with CORS
+    # Enhanced error handlers
     @app.errorhandler(404)
     def not_found(error):
         response = jsonify({
@@ -268,22 +330,6 @@ else:
         response.status_code = 400
         return response
     
-    # CORS error handler
-    @app.errorhandler(403)
-    def cors_error(error):
-        response = jsonify({
-            "error": "CORS Policy Error",
-            "message": "Cross-origin request blocked",
-            "allowed_origins": [
-                "https://yieldera.co.zw",
-                "https://yieldera.com", 
-                "http://localhost:3000"
-            ],
-            "version": "2.2.0-Enhanced"
-        })
-        response.status_code = 403
-        return response
-    
     return app
 
 # Create app instance
@@ -298,6 +344,13 @@ if __name__ == '__main__':
     print(f"🔧 Debug: {debug}")
     print(f"🌍 Environment: {os.environ.get('FLASK_ENV', 'production')}")
     print(f"⭐ Version: 2.2.0-Enhanced")
+    print()
+    print(f"🔧 CORS CONFIGURATION:")
+    print(f"   ✅ Method: Manual CORS (no Flask-CORS conflicts)")
+    print(f"   ✅ Production: https://yieldera.co.zw")
+    print(f"   ✅ Development: localhost:3000, 8080, 5173, 4200")
+    print(f"   ✅ Preflight: Full OPTIONS support")
+    print(f"   ✅ Credentials: Enabled for allowed origins")
     print()
     print(f"🔧 ENHANCED FEATURES:")
     print(f"   ✅ Dynamic deductibles (0-50% configurable)")
@@ -323,13 +376,11 @@ if __name__ == '__main__':
     print(f"   - Agronomic validation")
     print(f"   - Southern African patterns")
     print()
-    print(f"🌍 CORS CONFIGURATION:")
-    print(f"   - Production: https://yieldera.co.zw")
-    print(f"   - Development: localhost:3000, 8080, 5173")
-    print(f"   - Preflight: Full OPTIONS support")
-    print()
     print(f"🎯 GEOGRAPHIC FOCUS: Southern Africa")
     print(f"🔗 Health Check: http://localhost:{port}/api/health")
     print(f"📚 API Docs: http://localhost:{port}/")
+    print()
+    print(f"⚠️  CORS NOTE: Using manual CORS implementation to avoid")
+    print(f"   header conflicts. No Flask-CORS library imported.")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
