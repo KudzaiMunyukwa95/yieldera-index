@@ -7,7 +7,6 @@ import ee
 import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
-import numpy as np
 import pandas as pd
 
 from core.drought_analyzer import DroughtAnalyzer
@@ -508,9 +507,9 @@ class QuoteEngine:
             raise ValueError("No valid years for quote calculation")
         
         # Calculate aggregated risk metrics
-        avg_drought_impact = np.mean([y['drought_impact'] for y in valid_years])
-        avg_premium_rate = np.mean([y['simulated_premium_rate'] for y in valid_years])
-        avg_payout = np.mean([y['simulated_payout'] for y in valid_years])
+        avg_drought_impact = sum(y['drought_impact'] for y in valid_years) / len(valid_years)
+        avg_premium_rate = sum(y['simulated_premium_rate'] for y in valid_years) / len(valid_years)
+        avg_payout = sum(y['simulated_payout'] for y in valid_years) / len(valid_years)
         
         # Apply zone adjustments
         zone_adjustments = self._get_zone_adjustments(params)
@@ -601,7 +600,7 @@ class QuoteEngine:
                 if i < len(year_phases):
                     phase_losses.append(year_phases[i].get('normalized_loss', 0))
             
-            avg_loss = np.mean(phase_losses) if phase_losses else 0
+            avg_loss = sum(phase_losses) / len(phase_losses) if phase_losses else 0
             max_loss = max(phase_losses) if phase_losses else 0
             loss_frequency = len([l for l in phase_losses if l > 0.05]) / len(phase_losses) * 100 if phase_losses else 0
             
