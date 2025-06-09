@@ -1,6 +1,6 @@
 """
-Refined Quote Engine with detailed year-by-year simulation
-Implements proper seasonal logic and individual year analysis
+Enhanced Quote Engine with rainfall-only planting detection integrated
+Replaces the existing core/quote_engine.py file
 """
 
 import ee
@@ -8,29 +8,37 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
+import pandas as pd
 
 from core.drought_analyzer import DroughtAnalyzer
-from core.refined_planting_detection import RefinedPlantingDetector  # Updated import
 from core.zones import get_zone_adjustments
 from core.crops import CROP_PHASES, get_crop_info, validate_crop
 
-class RefinedQuoteEngine:
-    """Enhanced quote engine with detailed year-by-year simulation"""
+class QuoteEngine:
+    """Enhanced quote engine with integrated rainfall-only planting detection"""
     
     def __init__(self):
         """Initialize with refined components"""
         self.drought_analyzer = DroughtAnalyzer()
-        self.planting_detector = RefinedPlantingDetector()  # Updated detector
         
         # Enhanced simulation parameters
         self.base_loading_factor = 1.5  # Base loading multiplier
         self.minimum_premium_rate = 0.015  # 1.5% minimum
         self.maximum_premium_rate = 0.25   # 25% maximum
         
-        # Seasonal validation
-        self.valid_planting_months = [10, 11, 12, 1]  # Oct-Jan only
+        # Rainfall-based planting detection parameters
+        self.rainfall_threshold_7day = 20.0  # mm over 7 consecutive days
+        self.daily_threshold = 5.0  # mm for individual days
+        self.min_rainy_days = 2  # minimum days above daily threshold
         
-        print("🔧 Refined Quote Engine initialized")
+        # Seasonal validation - Summer crops only
+        self.valid_planting_months = [10, 11, 12, 1]  # Oct-Jan only
+        self.season_start_month = 10  # October
+        self.season_start_day = 1
+        self.season_end_month = 1  # January
+        self.season_end_day = 31
+        
+        print("🔧 Quote Engine initialized with refined features")
         print("🌱 Planting detection: Rainfall-only (no NDVI)")
         print("📊 Simulation: Detailed year-by-year analysis")
         print("🗓️ Season focus: Summer crops only (Oct-Jan planting)")
@@ -66,7 +74,7 @@ class RefinedQuoteEngine:
             print(f"📊 Historical analysis: {len(historical_years)} years ({min(historical_years)}-{max(historical_years)})")
             
             # Detect planting dates using refined rainfall-only logic
-            planting_dates = self.planting_detector.detect_planting_dates(
+            planting_dates = self._detect_planting_dates_rainfall_only(
                 params['latitude'], 
                 params['longitude'], 
                 historical_years
@@ -98,7 +106,7 @@ class RefinedQuoteEngine:
                     'minimum_qualifying_days': 2,
                     'season_window': 'October 1 - January 31'
                 },
-                'detection_summary': self.planting_detector.get_planting_windows_summary(planting_dates),
+                'detection_summary': self._get_planting_windows_summary(planting_dates),
                 'valid_seasons': len(valid_planting_dates),
                 'total_years_analyzed': len(historical_years)
             }
@@ -116,6 +124,208 @@ class RefinedQuoteEngine:
         except Exception as e:
             print(f"❌ Quote execution error: {e}")
             raise
+    
+    def _detect_planting_dates_rainfall_only(self, latitude: float, longitude: float, 
+                                           years: List[int]) -> Dict[int, Optional[str]]:
+        """
+        Detect planting dates using refined rainfall-only logic
+        
+        Args:
+            latitude: Field latitude
+            longitude: Field longitude  
+            years: List of years to analyze
+            
+        Returns:
+            dict: {year: planting_date_string or None}
+        """
+        point = ee.Geometry.Point([longitude, latitude])
+        results = {}
+        
+        print(f"🌱 Starting refined planting detection for {len(years)} years")
+        print(f"📍 Location: {latitude:.4f}, {longitude:.4f}")
+        print(f"🌧️ Criteria: ≥{self.rainfall_threshold_7day}mm over 7 days, {self.min_rainy_days}+ days ≥{self.daily_threshold}mm")
+        
+        for year in years:
+            try:
+                # Define summer season bounds for this year
+                season_start = datetime(year - 1, self.season_start_month, self.season_start_day)
+                season_end = datetime(year, self.season_end_month, self.season_end_day)
+                
+                print(f"\n📅 Analyzing {year} season: {season_start.strftime('%Y-%m-%d')} to {season_end.strftime('%Y-%m-%d')}")
+                
+                planting_date = self._detect_season_planting_rainfall(point, season_start, season_end)
+                results[year] = planting_date
+                
+                if planting_date:
+                    print(f"✅ {year}: Planting detected on {planting_date}")
+                else:
+                    print(f"❌ {year}: No suitable planting conditions detected")
+                    
+            except Exception as e:
+                print(f"❌ Error detecting planting for {year}: {e}")
+                results[year] = None
+        
+        return results
+    
+    def _detect_season_planting_rainfall(self, point: ee.Geometry.Point, 
+                                       season_start: datetime, season_end: datetime) -> Optional[str]:
+        """
+        Detect planting date within a specific season using rainfall criteria
+        
+        Args:
+            point: Geographic point
+            season_start: Start of planting window
+            season_end: End of planting window
+            
+        Returns:
+            Planting date string or None
+        """
+        try:
+            # Get CHIRPS rainfall data for the season
+            start_date = season_start.strftime('%Y-%m-%d')
+            end_date = season_end.strftime('%Y-%m-%d')
+            
+            chirps = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY') \
+                .filterDate(start_date, end_date) \
+                .filterBounds(point)
+            
+            # Extract daily rainfall time series
+            def extract_rainfall(image):
+                value = image.reduceRegion(
+                    reducer=ee.Reducer.mean(),
+                    geometry=point,
+                    scale=5566,  # CHIRPS native resolution
+                    maxPixels=1
+                ).get('precipitation')
+                
+                return ee.Feature(None, {
+                    'date': image.date().format('YYYY-MM-dd'),
+                    'rainfall': value
+                })
+            
+            rainfall_features = chirps.map(extract_rainfall)
+            rainfall_data = rainfall_features.getInfo()
+            
+            # Convert to pandas for easier analysis
+            daily_data = []
+            for feature in rainfall_data['features']:
+                props = feature['properties']
+                if props['rainfall'] is not None:
+                    daily_data.append({
+                        'date': props['date'],
+                        'rainfall': float(props['rainfall'])
+                    })
+            
+            if not daily_data:
+                print("⚠️ No rainfall data available for season")
+                return None
+            
+            df = pd.DataFrame(daily_data)
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date').reset_index(drop=True)
+            
+            print(f"📊 Rainfall data: {len(df)} days, range: {df['rainfall'].min():.1f}-{df['rainfall'].max():.1f}mm")
+            
+            # Find planting date using 7-day rolling window
+            planting_date = self._find_planting_with_criteria(df)
+            
+            return planting_date
+            
+        except Exception as e:
+            print(f"❌ Error in season planting detection: {e}")
+            return None
+    
+    def _find_planting_with_criteria(self, df: pd.DataFrame) -> Optional[str]:
+        """
+        Find planting date using refined rainfall criteria
+        
+        Args:
+            df: DataFrame with 'date' and 'rainfall' columns
+            
+        Returns:
+            Planting date string or None
+        """
+        if len(df) < 7:
+            return None
+        
+        # Calculate 7-day rolling sums and count qualifying days
+        df['rolling_7day'] = df['rainfall'].rolling(window=7, min_periods=7).sum()
+        df['daily_qualifying'] = df['rainfall'] >= self.daily_threshold
+        df['qualifying_days_7window'] = df['daily_qualifying'].rolling(window=7, min_periods=7).sum()
+        
+        # Find first date meeting both criteria
+        qualifying_windows = df[
+            (df['rolling_7day'] >= self.rainfall_threshold_7day) & 
+            (df['qualifying_days_7window'] >= self.min_rainy_days)
+        ]
+        
+        if qualifying_windows.empty:
+            return None
+        
+        # Return the first qualifying date (end of the 7-day window)
+        planting_date = qualifying_windows.iloc[0]['date']
+        
+        # Get the window details for logging
+        window_rainfall = qualifying_windows.iloc[0]['rolling_7day']
+        window_rainy_days = qualifying_windows.iloc[0]['qualifying_days_7window']
+        
+        print(f"🎯 Planting criteria met: {window_rainfall:.1f}mm over 7 days, {window_rainy_days} qualifying days")
+        
+        return planting_date.strftime('%Y-%m-%d')
+    
+    def _get_planting_windows_summary(self, planting_dates: Dict[int, Optional[str]]) -> Dict:
+        """
+        Generate summary statistics for planting windows
+        
+        Args:
+            planting_dates: Dictionary of year -> planting_date
+            
+        Returns:
+            Summary statistics
+        """
+        valid_dates = [date for date in planting_dates.values() if date is not None]
+        
+        if not valid_dates:
+            return {
+                "detection_rate": 0.0,
+                "average_planting_date": None,
+                "earliest_planting": None,
+                "latest_planting": None,
+                "planting_spread_days": None
+            }
+        
+        # Convert to datetime for analysis
+        date_objects = [datetime.strptime(date, '%Y-%m-%d') for date in valid_dates]
+        
+        # Calculate day of year (ignoring year differences)
+        days_of_year = [date.timetuple().tm_yday for date in date_objects]
+        
+        # Adjust for October-January season (Oct = day 274+, Jan = day 1-31)
+        adjusted_days = []
+        for day in days_of_year:
+            if day >= 274:  # October onwards
+                adjusted_days.append(day - 274)  # Oct 1 = day 0
+            else:  # January
+                adjusted_days.append(day + (365 - 274))  # Jan 1 = day 92
+        
+        avg_day = sum(adjusted_days) / len(adjusted_days)
+        
+        # Convert back to date
+        if avg_day <= 91:  # October-December
+            avg_date = datetime(2000, 10, 1) + timedelta(days=int(avg_day))
+        else:  # January
+            days_into_jan = avg_day - 92
+            avg_date = datetime(2001, 1, 1) + timedelta(days=int(days_into_jan))
+        
+        return {
+            "detection_rate": len(valid_dates) / len(planting_dates) * 100,
+            "average_planting_date": avg_date.strftime('%B %d'),
+            "earliest_planting": min(valid_dates),
+            "latest_planting": max(valid_dates),
+            "planting_spread_days": max(adjusted_days) - min(adjusted_days) if adjusted_days else 0,
+            "successful_years": len(valid_dates),
+            "total_years": len(planting_dates)
+        }
     
     def _validate_seasonal_planting_dates(self, planting_dates: Dict[int, Optional[str]]) -> Dict[int, str]:
         """
@@ -507,3 +717,10 @@ class RefinedQuoteEngine:
             'deductible_rate': request_data.get('deductible_rate', 0.05),
             'buffer_radius': request_data.get('buffer_radius', 1500)
         }
+    
+    def _determine_quote_type(self, year: int) -> str:
+        """
+        Determine quote type based on year
+        Maintained for backward compatibility
+        """
+        return self._determine_quote_type_with_validation(year)
