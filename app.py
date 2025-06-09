@@ -1,6 +1,6 @@
 """
-Yieldera Index Insurance Engine - Main Application (Enhanced Version)
-Next-generation backend for agricultural index insurance with comprehensive reporting
+Yieldera Index Insurance Engine - Refined Application
+Enhanced backend with rainfall-only planting detection and year-by-year simulation
 """
 
 from flask import Flask, jsonify
@@ -12,12 +12,12 @@ from datetime import datetime
 # Core modules
 from config import Config
 from core.gee_client import initialize_earth_engine
-from api.quotes import quotes_bp  # Updated with enhanced features
+from api.quotes import quotes_bp  # Updated with refined features
 from api.fields import fields_bp
 from api.health import health_bp
 
 def create_app():
-    """Application factory pattern with enhanced features"""
+    """Application factory pattern with refined features"""
     app = Flask(__name__)
     app.config.from_object(Config)
     
@@ -48,11 +48,16 @@ def create_app():
     def home():
         return jsonify({
             "service": "Yieldera Index Insurance Engine",
-            "version": "2.0.0-Enhanced",
+            "version": "2.1.0-Refined", 
             "status": "running",
             "timestamp": datetime.utcnow().isoformat(),
-            "message": "Next-generation agricultural index insurance platform for Africa",
-            "enhancement_level": "Comprehensive reporting exceeding ACRE Africa standards",
+            "message": "Refined agricultural index insurance platform for Southern Africa",
+            "refinements": [
+                "Rainfall-only planting detection (no NDVI)",
+                "Year-by-year premium/payout simulation", 
+                "Seasonal validation (Oct-Jan only)",
+                "Enhanced agronomic criteria"
+            ],
             "endpoints": {
                 "health": "/api/health",
                 "crops": "/api/health/crops",
@@ -62,7 +67,8 @@ def create_app():
                     "field_based": "POST /api/quotes/field/{field_id}",
                     "bulk": "POST /api/quotes/bulk",
                     "detailed_report": "GET /api/quotes/report/{quote_id}",
-                    "test_enhanced": "POST /api/quotes/test/enhanced"
+                    "simulation_details": "GET /api/quotes/simulation/{quote_id}",
+                    "test_refined": "POST /api/quotes/test/refined"
                 },
                 "fields": {
                     "list": "GET /api/fields",
@@ -70,31 +76,31 @@ def create_app():
                     "create": "POST /api/fields"
                 }
             },
-            "enhanced_features": [
-                "Comprehensive quote reports (9 sections)",
-                "Executive summary generation",
-                "Detailed coverage specifications",
-                "Risk analysis with zone adjustments",
-                "Payout structure documentation",
-                "Enhanced phase breakdown",
-                "Financial summary with loadings",
-                "Technical specifications",
-                "Claims procedure details",
-                "Terms and conditions",
-                "Portfolio analysis for bulk quotes",
-                "Trend analysis for field history"
+            "planting_detection": {
+                "method": "rainfall_only",
+                "criteria": {
+                    "cumulative_threshold": "≥20mm over 7 consecutive days",
+                    "daily_threshold": "≥5mm per day",
+                    "minimum_qualifying_days": 2,
+                    "detection_window": "October 1 - January 31"
+                },
+                "data_source": "CHIRPS satellite rainfall",
+                "no_ndvi": "NDVI logic completely removed"
+            },
+            "simulation_features": [
+                "Individual year premium calculation",
+                "Year-by-year payout simulation",
+                "Historical drought impact analysis",
+                "Net farmer outcome tracking",
+                "Loss ratio projections",
+                "Critical period identification"
             ],
-            "report_sections": [
-                "executive_summary",
-                "coverage_details", 
-                "risk_analysis",
-                "payout_structure",
-                "phase_breakdown",
-                "financial_summary",
-                "technical_specifications",
-                "claims_procedure",
-                "terms_and_conditions"
-            ]
+            "seasonal_validation": {
+                "focus": "Summer crops only",
+                "planting_window": "October - January",
+                "off_season_rejection": "Automatic",
+                "agronomic_basis": "Southern African cropping patterns"
+            }
         })
     
     # Enhanced error handlers
@@ -109,10 +115,11 @@ def create_app():
                 "POST /api/quotes/historical",
                 "POST /api/quotes/prospective",
                 "POST /api/quotes/field/{field_id}",
-                "GET /api/quotes/report/{quote_id}",
-                "POST /api/quotes/test/enhanced",
+                "GET /api/quotes/simulation/{quote_id}",
+                "POST /api/quotes/test/refined",
                 "GET /api/fields"
-            ]
+            ],
+            "version": "2.1.0-Refined"
         }), 404
     
     @app.errorhandler(500)
@@ -121,7 +128,7 @@ def create_app():
             "error": "Internal Server Error",
             "message": "An unexpected error occurred",
             "support": "Contact support@yieldera.com",
-            "version": "2.0.0-Enhanced"
+            "version": "2.1.0-Refined"
         }), 500
     
     @app.errorhandler(400)
@@ -129,7 +136,7 @@ def create_app():
         return jsonify({
             "error": "Bad Request", 
             "message": "Invalid request format or missing required fields",
-            "version": "2.0.0-Enhanced"
+            "version": "2.1.0-Refined"
         }), 400
     
     return app
@@ -141,12 +148,14 @@ if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
     debug = os.environ.get("FLASK_ENV") == "development"
     
-    print(f"🚀 Starting Yieldera Index Insurance Engine (Enhanced)")
+    print(f"🚀 Starting Yieldera Index Insurance Engine (Refined)")
     print(f"📍 Port: {port}")
     print(f"🔧 Debug: {debug}")
     print(f"🌍 Environment: {os.environ.get('FLASK_ENV', 'production')}")
-    print(f"⭐ Enhancement: Comprehensive reporting system")
-    print(f"📊 Report Sections: 9 detailed sections per quote")
-    print(f"🎯 Quality Level: Exceeds ACRE Africa standards")
+    print(f"⭐ Version: 2.1.0-Refined")
+    print(f"🌧️ Planting Detection: Rainfall-only (20mm/7days, 2+ days ≥5mm)")
+    print(f"📊 Simulation: Year-by-year premium/payout analysis")
+    print(f"🗓️ Season Focus: Summer crops (Oct-Jan planting)")
+    print(f"🎯 Geographic Focus: Southern Africa")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
