@@ -1,14 +1,15 @@
 """
-Database management for Yieldera Index Insurance Engine - ENHANCED VERSION
+Database management - ULTIMATE FIX for bytearray and NoneType issues
 """
 
 import mysql.connector
 from mysql.connector import Error
 import json
-from datetime import datetime
+from datetime import datetime, date
 from typing import Dict, List, Optional, Any
 from contextlib import contextmanager
 from config import Config
+import decimal
 
 class DatabaseManager:
     """Manages database connections and operations"""
@@ -54,21 +55,81 @@ class DatabaseManager:
             print(f"Database connection test failed: {e}")
             return False
 
+def clean_database_value(value):
+    """Clean database values for JSON serialization"""
+    if value is None:
+        return None
+    
+    # Handle bytearray (common in some MySQL configurations)
+    if isinstance(value, bytearray):
+        try:
+            # Try to decode as string
+            return value.decode('utf-8')
+        except UnicodeDecodeError:
+            # If not valid UTF-8, convert to string representation
+            return str(value)
+    
+    # Handle bytes
+    if isinstance(value, bytes):
+        try:
+            return value.decode('utf-8')
+        except UnicodeDecodeError:
+            return str(value)
+    
+    # Handle decimal.Decimal
+    if isinstance(value, decimal.Decimal):
+        return float(value)
+    
+    # Handle datetime/date objects
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    
+    # Return as-is for other types
+    return value
+
+def safe_numeric_conversion(value, field_name="unknown"):
+    """Safely convert database value to numeric type"""
+    if value is None:
+        return None
+    
+    # Clean the value first
+    cleaned_value = clean_database_value(value)
+    
+    if cleaned_value is None:
+        return None
+    
+    # If it's already a number, return it
+    if isinstance(cleaned_value, (int, float)):
+        return float(cleaned_value)
+    
+    # Try to convert string to float
+    if isinstance(cleaned_value, str):
+        cleaned_str = cleaned_value.strip()
+        if cleaned_str == '' or cleaned_str.lower() in ['null', 'none']:
+            return None
+        
+        try:
+            return float(cleaned_str)
+        except ValueError:
+            print(f"Warning: Could not convert {field_name} to float: '{cleaned_str}'")
+            return None
+    
+    # Try to convert other types
+    try:
+        return float(cleaned_value)
+    except (ValueError, TypeError):
+        print(f"Warning: Could not convert {field_name} to float: {cleaned_value} (type: {type(cleaned_value)})")
+        return None
+
 class FieldsRepository:
-    """Repository for field-related database operations"""
+    """Repository for field-related database operations with enhanced data cleaning"""
     
     def __init__(self):
         self.db = DatabaseManager()
     
     def get_field_by_id(self, field_id: int) -> Optional[Dict[str, Any]]:
         """
-        Get field data by ID with enhanced validation
-        
-        Args:
-            field_id: Field ID
-            
-        Returns:
-            dict: Field data or None if not found
+        Get field data by ID with comprehensive data cleaning
         """
         try:
             with self.db.get_connection() as conn:
@@ -85,65 +146,70 @@ class FieldsRepository:
                 """
                 
                 cursor.execute(query, (field_id,))
-                field_data = cursor.fetchone()
+                raw_field_data = cursor.fetchone()
                 cursor.close()
                 
-                if not field_data:
+                if not raw_field_data:
                     return None
                 
-                # Enhanced coordinate validation
-                lat = field_data.get('latitude')
-                lng = field_data.get('longitude')
+                # Clean all database values
+                field_data = {}
+                for key, value in raw_field_data.items():
+                    field_data[key] = clean_database_value(value)
                 
-                if lat is None or lng is None:
-                    print(f"Warning: Field {field_id} has NULL coordinates")
+                print(f"Field {field_id} raw data: {raw_field_data}")
+                print(f"Field {field_id} cleaned data: {field_data}")
+                
+                # Validate coordinates with safe conversion
+                lat_raw = field_data.get('latitude')
+                lng_raw = field_data.get('longitude')
+                
+                print(f"Field {field_id} coordinates - lat_raw: {lat_raw} (type: {type(lat_raw)}), lng_raw: {lng_raw} (type: {type(lng_raw)})")
+                
+                # Convert coordinates safely
+                latitude = safe_numeric_conversion(lat_raw, 'latitude')
+                longitude = safe_numeric_conversion(lng_raw, 'longitude')
+                
+                print(f"Field {field_id} converted coordinates - latitude: {latitude}, longitude: {longitude}")
+                
+                if latitude is None or longitude is None:
+                    print(f"Warning: Field {field_id} has NULL/invalid coordinates")
                     return None
                 
-                # Additional validation for coordinate ranges
-                try:
-                    lat_float = float(lat)
-                    lng_float = float(lng)
-                    
-                    if not (-90 <= lat_float <= 90):
-                        print(f"Warning: Field {field_id} has invalid latitude: {lat_float}")
-                        return None
-                    
-                    if not (-180 <= lng_float <= 180):
-                        print(f"Warning: Field {field_id} has invalid longitude: {lng_float}")
-                        return None
-                        
-                except (ValueError, TypeError):
-                    print(f"Warning: Field {field_id} has non-numeric coordinates: lat={lat}, lng={lng}")
+                # Validate coordinate ranges
+                if not (-90 <= latitude <= 90):
+                    print(f"Warning: Field {field_id} has invalid latitude: {latitude}")
                     return None
                 
-                # Validate area_ha - allow None but validate if present
-                if field_data.get('area_ha') is not None:
-                    try:
-                        area_value = float(field_data['area_ha'])
-                        if area_value <= 0:
-                            print(f"Warning: Field {field_id} has invalid area: {area_value}")
-                            field_data['area_ha'] = None
-                    except (ValueError, TypeError):
-                        print(f"Warning: Field {field_id} has non-numeric area: {field_data['area_ha']}")
-                        field_data['area_ha'] = None
+                if not (-180 <= longitude <= 180):
+                    print(f"Warning: Field {field_id} has invalid longitude: {longitude}")
+                    return None
+                
+                # Update field_data with converted coordinates
+                field_data['latitude'] = latitude
+                field_data['longitude'] = longitude
+                
+                # Handle area_ha safely
+                area_raw = field_data.get('area_ha')
+                area_ha = safe_numeric_conversion(area_raw, 'area_ha')
+                
+                if area_ha is not None and area_ha <= 0:
+                    print(f"Warning: Field {field_id} has non-positive area: {area_ha}")
+                    area_ha = None
+                
+                field_data['area_ha'] = area_ha
+                
+                print(f"Field {field_id} final cleaned data: {field_data}")
                 
                 return field_data
                 
         except Exception as e:
             print(f"Error fetching field {field_id}: {e}")
+            print(f"Error traceback: {traceback.format_exc()}")
             return None
     
     def get_fields_by_owner(self, owner_entity_id: int, limit: int = 100) -> List[Dict[str, Any]]:
-        """
-        Get fields by owner entity ID with coordinate validation
-        
-        Args:
-            owner_entity_id: Owner entity ID
-            limit: Maximum number of fields to return
-            
-        Returns:
-            list: List of valid field dictionaries
-        """
+        """Get fields by owner with data cleaning"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
@@ -154,27 +220,39 @@ class FieldsRepository:
                     crop, latitude, longitude, created_at
                 FROM fields 
                 WHERE owner_entity_id = %s
-                AND latitude IS NOT NULL 
-                AND longitude IS NOT NULL
-                AND latitude BETWEEN -90 AND 90
-                AND longitude BETWEEN -180 AND 180
                 ORDER BY created_at DESC
                 LIMIT %s
                 """
                 
                 cursor.execute(query, (owner_entity_id, limit))
-                fields = cursor.fetchall()
+                raw_fields = cursor.fetchall()
                 cursor.close()
                 
-                # Additional validation for returned fields
+                # Clean and validate each field
                 valid_fields = []
-                for field in fields:
+                for raw_field in raw_fields:
                     try:
-                        lat = float(field['latitude'])
-                        lng = float(field['longitude'])
-                        if -90 <= lat <= 90 and -180 <= lng <= 180:
-                            valid_fields.append(field)
-                    except (ValueError, TypeError):
+                        # Clean all values
+                        field = {}
+                        for key, value in raw_field.items():
+                            field[key] = clean_database_value(value)
+                        
+                        # Validate coordinates
+                        latitude = safe_numeric_conversion(field.get('latitude'), 'latitude')
+                        longitude = safe_numeric_conversion(field.get('longitude'), 'longitude')
+                        
+                        if latitude is not None and longitude is not None:
+                            if -90 <= latitude <= 90 and -180 <= longitude <= 180:
+                                field['latitude'] = latitude
+                                field['longitude'] = longitude
+                                
+                                # Handle area_ha
+                                area_ha = safe_numeric_conversion(field.get('area_ha'), 'area_ha')
+                                field['area_ha'] = area_ha
+                                
+                                valid_fields.append(field)
+                    except Exception as e:
+                        print(f"Error processing field {raw_field.get('id', 'unknown')}: {e}")
                         continue
                 
                 return valid_fields
@@ -184,27 +262,13 @@ class FieldsRepository:
             return []
     
     def search_fields(self, filters: Dict[str, Any], limit: int = 100) -> List[Dict[str, Any]]:
-        """
-        Search fields with filters and coordinate validation
-        
-        Args:
-            filters: Dictionary of search filters
-            limit: Maximum results
-            
-        Returns:
-            list: Matching valid fields
-        """
+        """Search fields with filters and data cleaning"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
                 
-                # Build dynamic query with coordinate validation
-                where_clauses = [
-                    "latitude IS NOT NULL",
-                    "longitude IS NOT NULL", 
-                    "latitude BETWEEN -90 AND 90",
-                    "longitude BETWEEN -180 AND 180"
-                ]
+                # Build dynamic query
+                where_clauses = []
                 params = []
                 
                 if filters.get('crop'):
@@ -229,25 +293,43 @@ class FieldsRepository:
                     id, name, farmer_name, area_ha, crop,
                     latitude, longitude, created_at
                 FROM fields
-                WHERE """ + " AND ".join(where_clauses) + """
-                ORDER BY created_at DESC LIMIT %s
                 """
                 
+                if where_clauses:
+                    query += " WHERE " + " AND ".join(where_clauses)
+                
+                query += " ORDER BY created_at DESC LIMIT %s"
                 params.append(limit)
                 
                 cursor.execute(query, params)
-                fields = cursor.fetchall()
+                raw_fields = cursor.fetchall()
                 cursor.close()
                 
-                # Final validation
+                # Clean and validate fields
                 valid_fields = []
-                for field in fields:
+                for raw_field in raw_fields:
                     try:
-                        lat = float(field['latitude'])
-                        lng = float(field['longitude'])
-                        if -90 <= lat <= 90 and -180 <= lng <= 180:
-                            valid_fields.append(field)
-                    except (ValueError, TypeError):
+                        # Clean all values
+                        field = {}
+                        for key, value in raw_field.items():
+                            field[key] = clean_database_value(value)
+                        
+                        # Validate coordinates
+                        latitude = safe_numeric_conversion(field.get('latitude'), 'latitude')
+                        longitude = safe_numeric_conversion(field.get('longitude'), 'longitude')
+                        
+                        if latitude is not None and longitude is not None:
+                            if -90 <= latitude <= 90 and -180 <= longitude <= 180:
+                                field['latitude'] = latitude
+                                field['longitude'] = longitude
+                                
+                                # Handle area_ha
+                                area_ha = safe_numeric_conversion(field.get('area_ha'), 'area_ha')
+                                field['area_ha'] = area_ha
+                                
+                                valid_fields.append(field)
+                    except Exception as e:
+                        print(f"Error processing field {raw_field.get('id', 'unknown')}: {e}")
                         continue
                 
                 return valid_fields
@@ -257,41 +339,30 @@ class FieldsRepository:
             return []
     
     def create_field(self, field_data: Dict[str, Any]) -> Optional[int]:
-        """
-        Create a new field with validation
-        
-        Args:
-            field_data: Field information
-            
-        Returns:
-            int: New field ID or None if failed
-        """
+        """Create a new field with validation"""
         try:
             # Validate coordinates before insertion
             if 'latitude' in field_data and 'longitude' in field_data:
-                try:
-                    lat = float(field_data['latitude'])
-                    lng = float(field_data['longitude'])
-                    
-                    if not (-90 <= lat <= 90):
-                        raise ValueError(f"Invalid latitude: {lat}")
-                    if not (-180 <= lng <= 180):
-                        raise ValueError(f"Invalid longitude: {lng}")
-                        
-                except (ValueError, TypeError) as e:
-                    print(f"Invalid coordinates for new field: {e}")
+                latitude = safe_numeric_conversion(field_data['latitude'], 'latitude')
+                longitude = safe_numeric_conversion(field_data['longitude'], 'longitude')
+                
+                if latitude is None or longitude is None:
+                    print("Invalid coordinates for new field")
                     return None
+                
+                if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+                    print(f"Coordinates out of range: lat={latitude}, lng={longitude}")
+                    return None
+                
+                field_data['latitude'] = latitude
+                field_data['longitude'] = longitude
             
             # Validate area_ha
-            if 'area_ha' in field_data and field_data['area_ha'] is not None:
-                try:
-                    area = float(field_data['area_ha'])
-                    if area <= 0:
-                        print(f"Invalid area for new field: {area}")
-                        field_data['area_ha'] = None
-                except (ValueError, TypeError):
-                    print(f"Non-numeric area for new field: {field_data['area_ha']}")
-                    field_data['area_ha'] = None
+            if 'area_ha' in field_data:
+                area_ha = safe_numeric_conversion(field_data['area_ha'], 'area_ha')
+                if area_ha is not None and area_ha <= 0:
+                    area_ha = None
+                field_data['area_ha'] = area_ha
             
             with self.db.get_connection() as conn:
                 cursor = conn.cursor()
@@ -330,21 +401,13 @@ class FieldsRepository:
             return None
 
 class QuotesRepository:
-    """Repository for quote-related database operations"""
+    """Repository for quote-related database operations with data cleaning"""
     
     def __init__(self):
         self.db = DatabaseManager()
     
     def save_quote(self, quote_data: Dict[str, Any]) -> Optional[str]:
-        """
-        Save quote to database with error handling
-        
-        Args:
-            quote_data: Complete quote information
-            
-        Returns:
-            str: Quote ID or None if failed
-        """
+        """Save quote to database with enhanced error handling"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor()
@@ -365,18 +428,23 @@ class QuotesRepository:
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 
-                # Safe extraction with defaults
+                # Safe extraction with defaults and cleaning
                 field_id = quote_data.get('field_id')
-                crop = quote_data.get('crop', 'unknown')
-                year = quote_data.get('year', datetime.now().year)
-                quote_type = quote_data.get('quote_type', 'unknown')
+                crop = str(quote_data.get('crop', 'unknown'))
+                year = int(quote_data.get('year', datetime.now().year))
+                quote_type = str(quote_data.get('quote_type', 'unknown'))
                 sum_insured = float(quote_data.get('sum_insured', 0))
                 gross_premium = float(quote_data.get('gross_premium', 0))
                 premium_rate = float(quote_data.get('premium_rate', 0))
                 payout_index = float(quote_data.get('total_payout_ratio', 0))
                 burning_cost = float(quote_data.get('burning_cost', 0))
                 planting_date = quote_data.get('planting_date')
-                zone = quote_data.get('zone', 'auto_detect')
+                zone = str(quote_data.get('zone', 'auto_detect'))
+                
+                # Clean quote_data for JSON serialization
+                cleaned_quote_data = {}
+                for key, value in quote_data.items():
+                    cleaned_quote_data[key] = clean_database_value(value)
                 
                 values = (
                     quote_id,
@@ -391,7 +459,7 @@ class QuotesRepository:
                     burning_cost,
                     planting_date,
                     zone,
-                    json.dumps(quote_data),
+                    json.dumps(cleaned_quote_data),
                     datetime.utcnow()
                 )
                 
@@ -436,15 +504,7 @@ class QuotesRepository:
             print(f"Error ensuring quotes table: {e}")
     
     def get_quote_by_id(self, quote_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get quote by ID
-        
-        Args:
-            quote_id: Quote ID
-            
-        Returns:
-            dict: Quote data or None if not found
-        """
+        """Get quote by ID with data cleaning"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
@@ -458,12 +518,22 @@ class QuotesRepository:
                 """
                 
                 cursor.execute(query, (quote_id,))
-                quote = cursor.fetchone()
+                raw_quote = cursor.fetchone()
                 cursor.close()
                 
-                if quote and quote.get('quote_data'):
+                if not raw_quote:
+                    return None
+                
+                # Clean all values
+                quote = {}
+                for key, value in raw_quote.items():
+                    quote[key] = clean_database_value(value)
+                
+                # Handle JSON data
+                if quote.get('quote_data'):
                     try:
-                        quote['quote_data'] = json.loads(quote['quote_data'])
+                        if isinstance(quote['quote_data'], str):
+                            quote['quote_data'] = json.loads(quote['quote_data'])
                     except json.JSONDecodeError:
                         quote['quote_data'] = {}
                 
@@ -474,16 +544,7 @@ class QuotesRepository:
             return None
     
     def get_quotes_by_field(self, field_id: int, limit: int = 20) -> List[Dict[str, Any]]:
-        """
-        Get quotes for a field
-        
-        Args:
-            field_id: Field ID
-            limit: Maximum number of quotes
-            
-        Returns:
-            list: List of quotes
-        """
+        """Get quotes for a field with data cleaning"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
@@ -498,8 +559,16 @@ class QuotesRepository:
                 """
                 
                 cursor.execute(query, (field_id, limit))
-                quotes = cursor.fetchall()
+                raw_quotes = cursor.fetchall()
                 cursor.close()
+                
+                # Clean all quotes
+                quotes = []
+                for raw_quote in raw_quotes:
+                    quote = {}
+                    for key, value in raw_quote.items():
+                        quote[key] = clean_database_value(value)
+                    quotes.append(quote)
                 
                 return quotes
                 
@@ -515,7 +584,7 @@ def init_database_tables():
         with db.get_connection() as conn:
             cursor = conn.cursor()
             
-            # Create quotes table if it doesn't exist
+            # Create quotes table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS quotes (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -542,40 +611,9 @@ def init_database_tables():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             """)
             
-            # Create quote_metrics table for analytics
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS quote_metrics (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    quote_id VARCHAR(100) NULL,
-                    execution_time_ms INT NOT NULL,
-                    gee_api_calls INT DEFAULT 0,
-                    years_processed INT DEFAULT 0,
-                    crop VARCHAR(50) NOT NULL,
-                    quote_type VARCHAR(20) NOT NULL,
-                    premium_rate DECIMAL(6,4) NULL,
-                    payout_index DECIMAL(6,4) NULL,
-                    error_message TEXT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    
-                    INDEX idx_crop_type (crop, quote_type),
-                    INDEX idx_created_at (created_at),
-                    FOREIGN KEY (quote_id) REFERENCES quotes(quote_id) ON DELETE SET NULL
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            """)
-            
-            # Add indexes to existing fields table for better performance
+            # Add indexes to fields table
             try:
                 cursor.execute("CREATE INDEX idx_fields_coordinates ON fields(latitude, longitude)")
-            except mysql.connector.Error:
-                pass  # Index might already exist
-            
-            try:
-                cursor.execute("CREATE INDEX idx_fields_crop ON fields(crop)")
-            except mysql.connector.Error:
-                pass
-            
-            try:
-                cursor.execute("CREATE INDEX idx_fields_owner_entity ON fields(owner_entity_id)")
             except mysql.connector.Error:
                 pass
             
@@ -585,3 +623,6 @@ def init_database_tables():
     except Exception as e:
         print(f"❌ Error initializing database tables: {e}")
         raise
+
+# Add missing import
+import traceback
