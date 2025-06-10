@@ -67,8 +67,8 @@ class QuoteEngine:
         self.season_end_month = 1  # January
         self.season_end_day = 31
         
-        # PERFORMANCE: Pre-compute common Earth Engine objects
-        self._chirps_collection = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+        # PERFORMANCE: Lazy-load Earth Engine objects (initialized after ee.Initialize())
+        self._chirps_collection = None
         
         print("🚀 High-Performance Quote Engine V2.4 initialized")
         print("📚 Using crops.py with 9 crop types and AEZ zones")
@@ -78,6 +78,17 @@ class QuoteEngine:
         print(f"📈 ACTUARIAL STANDARD: {self.ACTUARIAL_MINIMUM_YEARS} years minimum")
         print(f"⚡ PERFORMANCE: Server-side operations, no .getInfo() bottlenecks")
         print(f"📅 Data period: {self.EARLIEST_RELIABLE_DATA} onwards ({datetime.now().year - self.EARLIEST_RELIABLE_DATA + 1} years available)")
+    
+    def _get_chirps_collection(self):
+        """Lazy-load CHIRPS collection after Earth Engine is initialized"""
+        if self._chirps_collection is None:
+            try:
+                self._chirps_collection = ee.ImageCollection('UCSB-CHG/CHIRPS/DAILY')
+                print("📡 CHIRPS collection initialized successfully")
+            except Exception as e:
+                print(f"❌ Failed to initialize CHIRPS collection: {e}")
+                raise
+        return self._chirps_collection
     
     def execute_quote(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -264,8 +275,8 @@ class QuoteEngine:
             start_date = season_start.strftime('%Y-%m-%d')
             end_date = season_end.strftime('%Y-%m-%d')
             
-            # OPTIMIZATION: Use pre-computed CHIRPS collection
-            season_chirps = self._chirps_collection \
+            # OPTIMIZATION: Use lazy-loaded CHIRPS collection
+            season_chirps = self._get_chirps_collection() \
                 .filterDate(start_date, end_date) \
                 .filterBounds(point)
             
@@ -486,8 +497,8 @@ class QuoteEngine:
         
         print(f"📅 Overall analysis period: {overall_start} to {overall_end}")
         
-        # OPTIMIZATION: Single CHIRPS query for entire period
-        chirps_full = self._chirps_collection \
+        # OPTIMIZATION: Single CHIRPS query for entire period using lazy-loaded collection
+        chirps_full = self._get_chirps_collection() \
             .filterDate(overall_start, overall_end) \
             .filterBounds(point)
         
