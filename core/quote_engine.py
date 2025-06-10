@@ -1,6 +1,6 @@
 """
-Fixed High-Performance Quote Engine V2.4 - Corrected Year-by-Year Calculations
-Fixes premium calculation, loss ratios, and net result computations
+Actuarially Correct High-Performance Quote Engine V2.5
+Fixed to use consistent premium rates across historical simulation
 """
 
 import ee
@@ -30,7 +30,7 @@ except ImportError:
     print("🗺️ Using crops.py zone data (zones.py not found)")
 
 class QuoteEngine:
-    """Fixed high-performance quote engine with corrected calculations"""
+    """Actuarially correct high-performance quote engine"""
     
     def __init__(self):
         """Initialize with performance-optimized components"""
@@ -40,15 +40,10 @@ class QuoteEngine:
         self.OPTIMAL_YEARS_RANGE = 25          # Optimal for capturing climate cycles
         self.EARLIEST_RELIABLE_DATA = 1981     # CHIRPS reliable data starts from 1981
         
-        # FIXED: Enhanced simulation parameters with proper individual year calculation
+        # ACTUARIALLY CORRECT: Enhanced simulation parameters
         self.base_loading_factor = 1.5  # Base loading multiplier
         self.minimum_premium_rate = 0.015  # 1.5% minimum
         self.maximum_premium_rate = 0.25   # 25% maximum
-        
-        # FIXED: Individual year premium calculation parameters
-        self.individual_year_risk_adjustment = 0.8  # Reduces volatility in individual year rates
-        self.minimum_individual_premium_rate = 0.01  # 1% minimum for individual years
-        self.maximum_individual_premium_rate = 0.15  # 15% maximum for individual years
         
         # Dynamic deductible defaults (now configurable)
         self.default_deductible_rate = 0.05  # 5% default, now flexible
@@ -75,8 +70,8 @@ class QuoteEngine:
         # PERFORMANCE: Lazy-load Earth Engine objects (initialized after ee.Initialize())
         self._chirps_collection = None
         
-        print("🚀 FIXED High-Performance Quote Engine V2.4 initialized")
-        print("🔧 FIXES: Individual year premium calculation, loss ratios, net results")
+        print("🚀 ACTUARIALLY CORRECT High-Performance Quote Engine V2.5 initialized")
+        print("🔧 ACTUARIAL FIX: Consistent premium rates across historical simulation")
         print("📚 Using crops.py with 9 crop types and AEZ zones")
         print("🌱 Planting detection: Optimized rainfall-only (server-side)")
         print("📊 Features: Dynamic deductibles, custom loadings, year alignment")
@@ -98,16 +93,16 @@ class QuoteEngine:
     
     def execute_quote(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute quote with high-performance 20-year analysis
+        Execute quote with actuarially correct 20-year analysis
         
         Args:
             request_data: Quote request parameters
             
         Returns:
-            Enhanced quote with optimized 20-year historical analysis
+            Enhanced quote with actuarially correct historical analysis
         """
         try:
-            print(f"\n🚀 Starting FIXED high-performance quote execution")
+            print(f"\n🚀 Starting ACTUARIALLY CORRECT quote execution")
             start_time = datetime.now()
             
             # Validate and extract parameters (with deductible and loadings support)
@@ -162,12 +157,12 @@ class QuoteEngine:
                     f"Minimum 10 seasons required for statistical reliability."
                 )
             
-            # OPTIMIZED: Perform batch analysis with server-side operations
+            # ACTUARIALLY CORRECT: Perform batch analysis with consistent premium rate
             year_by_year_analysis = self._perform_optimized_batch_analysis(
                 params, valid_planting_dates
             )
             
-            # FIXED: Calculate enhanced quote metrics with corrected individual year calculations
+            # ACTUARIALLY CORRECT: Calculate enhanced quote metrics
             quote_result = self._calculate_enhanced_quote_v2_fixed(
                 params, year_by_year_analysis, valid_planting_dates
             )
@@ -205,15 +200,15 @@ class QuoteEngine:
             
             execution_time = (datetime.now() - start_time).total_seconds()
             quote_result['execution_time_seconds'] = round(execution_time, 2)
-            quote_result['version'] = "2.4.0-HighPerformance-Fixed"
+            quote_result['version'] = "2.5.0-ActuariallyCorrect"
             
-            print(f"✅ FIXED high-performance quote completed in {execution_time:.2f} seconds")
+            print(f"✅ ACTUARIALLY CORRECT quote completed in {execution_time:.2f} seconds")
             print(f"💰 Premium rate: {quote_result['premium_rate']*100:.2f}%")
             print(f"💵 Gross premium: ${quote_result['gross_premium']:,.2f}")
             print(f"📈 Total loadings: ${quote_result['total_loadings']:,.2f}")
             print(f"📊 Data quality: {quote_result['data_quality_metrics']['detection_success_rate']:.1f}% valid seasons")
             print(f"⚡ Performance improvement: Server-side batch processing")
-            print(f"🔧 CALCULATION FIX: Individual year premiums now vary by risk")
+            print(f"🔧 ACTUARIAL COMPLIANCE: Consistent premium rate across all historical years")
             
             return quote_result
             
@@ -223,8 +218,9 @@ class QuoteEngine:
     
     def _analyze_individual_year_optimized_fixed(self, params: Dict[str, Any], year: int, 
                                                planting_date: str, 
-                                               rainfall_by_phase: Dict[str, float]) -> Dict[str, Any]:
-        """FIXED: Analyze individual year with corrected premium and loss ratio calculations"""
+                                               rainfall_by_phase: Dict[str, float],
+                                               actuarial_premium_rate: float) -> Dict[str, Any]:
+        """ACTUARIALLY CORRECT: Analyze individual year using consistent actuarial premium rate"""
         # Get crop phases using your crops.py structure
         crop_phases = get_crop_phases(params['crop'])
         
@@ -238,31 +234,19 @@ class QuoteEngine:
             crop_phases, rainfall_by_phase, params['crop']
         )
         
-        # FIXED: Calculate individual year premium rate with proper risk scaling
-        base_risk = drought_impact / 100.0
-        zone_multiplier = self._get_zone_risk_multiplier(params)
-        
-        # FIXED: Individual year premium should vary based on that year's specific risk
-        # Apply individual year risk adjustment to prevent extreme volatility
-        individual_risk = base_risk * self.individual_year_risk_adjustment
-        individual_premium_rate = individual_risk * self.base_loading_factor * zone_multiplier
-        
-        # FIXED: Apply individual year bounds (different from overall quote bounds)
-        individual_premium_rate = max(self.minimum_individual_premium_rate, 
-                                    min(individual_premium_rate, self.maximum_individual_premium_rate))
-        
-        # FIXED: Calculate amounts with proper individual year premium
+        # ACTUARIALLY CORRECT: Use the same premium rate for ALL years
+        # This rate was calculated from the overall historical risk analysis
         sum_insured = params['expected_yield'] * params['price_per_ton'] * params.get('area_ha', 1.0)
         
-        # FIXED: Individual year premium calculation
-        simulated_premium = sum_insured * individual_premium_rate
+        # ACTUARIALLY CORRECT: Same premium every year (what farmer would have paid)
+        simulated_premium = sum_insured * actuarial_premium_rate
         
-        # FIXED: Payout calculation (this was mostly correct)
+        # CORRECT: Payout varies by year based on actual drought impact
         # Apply deductible to the drought impact before calculating payout
         drought_impact_after_deductible = max(0, drought_impact - (params.get('deductible_rate', 0.05) * 100))
         simulated_payout = sum_insured * (drought_impact_after_deductible / 100.0)
         
-        # FIXED: Net result and loss ratio calculations
+        # CORRECT: Net result and loss ratio calculations
         net_result = simulated_payout - simulated_premium
         loss_ratio = (simulated_payout / simulated_premium) if simulated_premium > 0 else 0
         
@@ -270,7 +254,7 @@ class QuoteEngine:
         planting_year = int(planting_date.split('-')[0])
         harvest_year = year
         
-        # FIXED: Count critical periods more accurately
+        # Count critical periods
         critical_periods = len([
             p for p, r in rainfall_by_phase.items() 
             if r < (get_crop_config(params['crop'])['phases'][
@@ -286,46 +270,123 @@ class QuoteEngine:
             'season_end_date': season_end.strftime('%Y-%m-%d'),
             'drought_impact': round(drought_impact, 2),
             'drought_impact_after_deductible': round(drought_impact_after_deductible, 2),
-            'individual_risk_factor': round(individual_risk, 4),
-            'simulated_premium_rate': round(individual_premium_rate, 4),
+            'actuarial_premium_rate': round(actuarial_premium_rate, 4),
             'simulated_premium_usd': round(simulated_premium, 2),
             'simulated_payout': round(simulated_payout, 2),
             'net_result': round(net_result, 2),
             'loss_ratio': round(loss_ratio, 4),
             'rainfall_mm_by_phase': rainfall_by_phase,
-            'critical_periods': critical_periods,
-            'zone_multiplier': round(zone_multiplier, 3)
+            'critical_periods': critical_periods
         }
+    
+    def _perform_optimized_batch_analysis(self, params: Dict[str, Any], 
+                                        planting_dates: Dict[int, str]) -> List[Dict[str, Any]]:
+        """ACTUARIALLY CORRECT: Perform batch analysis using consistent premium rate"""
+        year_results = []
+        
+        print(f"\n📊 Starting ACTUARIALLY CORRECT batch analysis for {len(planting_dates)} seasons")
+        print(f"⚡ Method: Server-side batch processing with consistent premium rate")
+        
+        # STEP 1: Calculate overall actuarial premium rate first
+        print(f"🔍 STEP 1: Calculating actuarial premium rate from historical data...")
+        
+        # OPTIMIZATION: Batch process all years at once
+        batch_rainfall_data = self._calculate_batch_rainfall_all_phases(
+            params['latitude'],
+            params['longitude'],
+            planting_dates,
+            params['crop']
+        )
+        
+        # STEP 2: Calculate average drought risk across all years
+        total_drought_impacts = []
+        for year, planting_date in planting_dates.items():
+            year_rainfall_data = batch_rainfall_data.get(year, {})
+            if year_rainfall_data:
+                crop_phases = get_crop_phases(params['crop'])
+                drought_impact = self._calculate_drought_impact_by_phases(
+                    crop_phases, year_rainfall_data, params['crop']
+                )
+                total_drought_impacts.append(drought_impact)
+        
+        # Calculate actuarial premium rate based on average historical risk
+        avg_drought_impact = sum(total_drought_impacts) / len(total_drought_impacts)
+        overall_drought_risk = avg_drought_impact / 100.0
+        zone_multiplier = self._get_zone_risk_multiplier(params)
+        
+        actuarial_premium_rate = overall_drought_risk * self.base_loading_factor * zone_multiplier
+        actuarial_premium_rate = max(self.minimum_premium_rate, 
+                                   min(actuarial_premium_rate, self.maximum_premium_rate))
+        
+        print(f"📊 ACTUARIAL CALCULATION:")
+        print(f"   Average historical drought impact: {avg_drought_impact:.2f}%")
+        print(f"   Zone multiplier: {zone_multiplier:.3f}")
+        print(f"   Actuarial premium rate: {actuarial_premium_rate*100:.2f}%")
+        print(f"🔧 This SAME rate will be applied to ALL historical years")
+        
+        # STEP 3: Apply the same premium rate to all years (proper actuarial simulation)
+        for year, planting_date in planting_dates.items():
+            try:
+                print(f"\n🔍 Processing {year} season (planted: {planting_date})")
+                
+                # Get pre-computed rainfall data for this year
+                year_rainfall_data = batch_rainfall_data.get(year, {})
+                
+                # ACTUARIALLY CORRECT: Use the same premium rate for all years
+                year_analysis = self._analyze_individual_year_optimized_fixed(
+                    params, year, planting_date, year_rainfall_data, actuarial_premium_rate
+                )
+                year_results.append(year_analysis)
+                
+                print(f"📈 {year} ACTUARIAL results: {year_analysis['drought_impact']:.1f}% loss, "
+                      f"{year_analysis['actuarial_premium_rate']*100:.2f}% rate (SAME), "
+                      f"${year_analysis['simulated_premium_usd']:,.0f} premium (SAME), "
+                      f"${year_analysis['simulated_payout']:,.0f} payout (VARIES), "
+                      f"LR: {year_analysis['loss_ratio']:.2f}")
+                
+            except Exception as e:
+                print(f"❌ Error analyzing {year}: {e}")
+                # Add error entry to maintain year tracking
+                year_results.append({
+                    'year': year,
+                    'planting_date': planting_date,
+                    'planting_year': int(planting_date.split('-')[0]) if planting_date else year-1,
+                    'harvest_year': year,
+                    'error': str(e),
+                    'drought_impact': 0.0,
+                    'actuarial_premium_rate': actuarial_premium_rate,
+                    'simulated_premium_usd': 0.0,
+                    'simulated_payout': 0.0,
+                    'net_result': 0.0,
+                    'loss_ratio': 0.0,
+                    'rainfall_mm_by_phase': {}
+                })
+        
+        return year_results
     
     def _calculate_enhanced_quote_v2_fixed(self, params: Dict[str, Any], 
                                          year_analysis: List[Dict[str, Any]],
                                          planting_dates: Dict[int, str]) -> Dict[str, Any]:
-        """FIXED: Calculate quote with corrected aggregated metrics from individual year calculations"""
+        """ACTUARIALLY CORRECT: Calculate quote using consistent premium rate from simulation"""
         valid_years = [y for y in year_analysis if 'error' not in y]
         
         if not valid_years:
             raise ValueError("No valid years for quote calculation")
         
-        # FIXED: Calculate aggregated risk metrics from individual year data
+        # ACTUARIALLY CORRECT: All years used the same premium rate
+        # Get the actuarial premium rate that was consistently applied
+        actuarial_premium_rate = valid_years[0]['actuarial_premium_rate']  # Same for all years
         avg_drought_impact = sum(y['drought_impact'] for y in valid_years) / len(valid_years)
-        
-        # FIXED: Use the corrected individual premium rates for aggregation
-        avg_individual_premium_rate = sum(y['simulated_premium_rate'] for y in valid_years) / len(valid_years)
         avg_payout = sum(y['simulated_payout'] for y in valid_years) / len(valid_years)
         
-        # FIXED: The overall quote premium rate should be based on aggregated risk, not individual year average
-        overall_drought_risk = avg_drought_impact / 100.0
+        # Get zone adjustments
         zone_adjustments = self._get_zone_adjustments_from_crops(params)
-        
-        # FIXED: Calculate final premium rate for the overall quote (this is what customer pays)
-        final_premium_rate = overall_drought_risk * self.base_loading_factor * zone_adjustments.get('risk_multiplier', 1.0)
-        final_premium_rate = max(self.minimum_premium_rate, min(final_premium_rate, self.maximum_premium_rate))
         
         # Calculate financial metrics for the overall quote
         sum_insured = params['expected_yield'] * params['price_per_ton'] * params.get('area_ha', 1.0)
         
-        # Calculate burning cost using final premium rate
-        burning_cost = sum_insured * final_premium_rate
+        # ACTUARIALLY CORRECT: Use the same rate that was applied in simulation
+        burning_cost = sum_insured * actuarial_premium_rate
         
         # ENHANCED: Apply custom loadings or defaults
         loadings_to_use = params['custom_loadings'] if params['custom_loadings'] else self.default_loadings
@@ -346,10 +407,10 @@ class QuoteEngine:
         # ENHANCED: Apply dynamic deductible
         deductible_amount = sum_insured * params['deductible_rate']
         
-        # FIXED: Generate enhanced phase breakdown using corrected data
+        # Generate enhanced phase breakdown using corrected data
         phase_breakdown = self._generate_enhanced_phase_breakdown_from_crops_fixed(params['crop'], valid_years)
         
-        # FIXED: Calculate historical simulation summary with corrected metrics
+        # Calculate historical simulation summary with corrected metrics
         historical_simulation_summary = self._calculate_simulation_summary_fixed(valid_years)
         
         # Create comprehensive quote result
@@ -362,11 +423,11 @@ class QuoteEngine:
             'longitude': params['longitude'],
             'area_ha': params.get('area_ha', 1.0),
             
-            # FIXED: Financial summary with corrected calculations
+            # ACTUARIALLY CORRECT: Financial summary
             'expected_yield': params['expected_yield'],
             'price_per_ton': params['price_per_ton'],
             'sum_insured': sum_insured,
-            'premium_rate': final_premium_rate,  # This is the rate customer pays
+            'premium_rate': actuarial_premium_rate,  # The rate customer pays (same as simulation)
             'burning_cost': burning_cost,
             'loadings_breakdown': loadings_breakdown,
             'total_loadings': total_loadings_amount,
@@ -374,9 +435,8 @@ class QuoteEngine:
             'deductible_rate': params['deductible_rate'],
             'deductible_amount': deductible_amount,
             
-            # FIXED: Risk analysis with corrected metrics
+            # Risk analysis
             'expected_payout_ratio': avg_drought_impact / 100.0,
-            'average_individual_premium_rate': avg_individual_premium_rate,  # For comparison
             'historical_years_used': list(planting_dates.keys()),
             'zone': params.get('zone', 'auto_detected'),
             'zone_adjustments': zone_adjustments,
@@ -387,22 +447,25 @@ class QuoteEngine:
             
             # Metadata
             'generated_at': datetime.utcnow().isoformat(),
-            'methodology': 'optimized_actuarial_rainfall_v2.4_fixed'
+            'methodology': 'actuarially_correct_v2.5'
         }
         
         return quote_result
     
     def _calculate_simulation_summary_fixed(self, valid_years: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """FIXED: Calculate simulation summary with corrected metrics"""
+        """ACTUARIALLY CORRECT: Calculate simulation summary with consistent premium metrics"""
         if not valid_years:
             return {}
         
-        # FIXED: Corrected calculations
+        # Collect metrics (premiums are now consistent across all years)
         total_drought_impacts = [y['drought_impact'] for y in valid_years]
         total_premiums = [y['simulated_premium_usd'] for y in valid_years]
         total_payouts = [y['simulated_payout'] for y in valid_years]
         total_net_results = [y['net_result'] for y in valid_years]
         loss_ratios = [y['loss_ratio'] for y in valid_years]
+        
+        # The premium rate is consistent across all years (actuarially correct)
+        consistent_premium_rate = valid_years[0]['actuarial_premium_rate']
         
         # Calculate payout frequency (years with meaningful payouts > 1% of sum insured)
         meaningful_payouts = [y for y in valid_years if y['simulated_payout'] > (y['simulated_premium_usd'] * 0.01)]
@@ -415,7 +478,7 @@ class QuoteEngine:
         return {
             'years_analyzed': len(valid_years),
             'average_drought_impact': round(sum(total_drought_impacts) / len(total_drought_impacts), 2),
-            'average_premium_rate': round(sum(y['simulated_premium_rate'] for y in valid_years) / len(valid_years), 4),
+            'actuarial_premium_rate': round(consistent_premium_rate, 4),  # Same for all years
             'average_payout': round(sum(total_payouts) / len(total_payouts), 2),
             'average_loss_ratio': round(sum(loss_ratios) / len(loss_ratios), 4),
             'payout_frequency': round(payout_frequency, 1),
@@ -426,18 +489,19 @@ class QuoteEngine:
             'total_historical_premiums': round(sum(total_premiums), 2),
             'total_historical_payouts': round(sum(total_payouts), 2),
             'net_historical_result': round(sum(total_net_results), 2),
-            'overall_historical_loss_ratio': round(sum(total_payouts) / sum(total_premiums), 4) if sum(total_premiums) > 0 else 0
+            'overall_historical_loss_ratio': round(sum(total_payouts) / sum(total_premiums), 4) if sum(total_premiums) > 0 else 0,
+            'actuarial_note': f"All {len(valid_years)} years used consistent {consistent_premium_rate*100:.2f}% premium rate"
         }
     
     def _generate_field_story_fixed(self, year_analysis: List[Dict[str, Any]], 
                                   params: Dict[str, Any]) -> Dict[str, Any]:
-        """FIXED: Generate field-level storytelling with corrected calculations"""
+        """ACTUARIALLY CORRECT: Generate field-level storytelling with consistent premium calculations"""
         valid_years = [y for y in year_analysis if 'error' not in y]
         
         if not valid_years:
             return {"summary": "Insufficient data for field story generation"}
         
-        # FIXED: Calculate totals with corrected individual year data
+        # ACTUARIALLY CORRECT: Calculate totals with consistent premium data
         total_premiums = sum(y['simulated_premium_usd'] for y in valid_years)
         total_payouts = sum(y['simulated_payout'] for y in valid_years)
         net_position = total_payouts - total_premiums
@@ -446,16 +510,19 @@ class QuoteEngine:
         best_year = min(valid_years, key=lambda x: x['drought_impact'])
         worst_year = max(valid_years, key=lambda x: x['drought_impact'])
         
-        # FIXED: Calculate value metrics
+        # Calculate value metrics
         years_with_payouts = len([y for y in valid_years if y['simulated_payout'] > (y['simulated_premium_usd'] * 0.01)])
         payout_frequency = years_with_payouts / len(valid_years) * 100
         
-        # FIXED: Generate story with accurate financial context
+        # Get consistent premium rate
+        consistent_rate = valid_years[0]['actuarial_premium_rate']
+        
+        # Generate story with accurate financial context
         risk_level = "low" if worst_year['drought_impact'] < 20 else "moderate" if worst_year['drought_impact'] < 50 else "high"
         
         summary = (f"Over the past {len(valid_years)} seasons at this {params['crop']} field, "
-                  f"individual year premiums would have totaled ${total_premiums:,.0f} with "
-                  f"${total_payouts:,.0f} in total payouts. ")
+                  f"paying a consistent {consistent_rate*100:.2f}% premium rate would have totaled "
+                  f"${total_premiums:,.0f} with ${total_payouts:,.0f} in total payouts. ")
         
         if net_position > 0:
             summary += f"The insurance would have provided a net benefit of ${net_position:,.0f} over this period."
@@ -470,6 +537,7 @@ class QuoteEngine:
             "summary": summary,
             "historical_performance": {
                 "total_seasons": len(valid_years),
+                "consistent_premium_rate": round(consistent_rate, 4),
                 "total_premiums_paid": round(total_premiums, 2),
                 "total_payouts_received": round(total_payouts, 2),
                 "net_farmer_position": round(net_position, 2),
@@ -503,7 +571,7 @@ class QuoteEngine:
     
     def _generate_enhanced_phase_breakdown_from_crops_fixed(self, crop: str, 
                                                           valid_years: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """FIXED: Generate enhanced phase breakdown with corrected stress calculations"""
+        """Generate enhanced phase breakdown with corrected stress calculations"""
         crop_phases = get_crop_phases(crop)
         enhanced_phases = []
         
@@ -515,17 +583,17 @@ class QuoteEngine:
                 if phase_name in rainfall_by_phase:
                     phase_rainfall_data.append(rainfall_by_phase[phase_name])
             
-            # FIXED: Calculate phase statistics
+            # Calculate phase statistics
             if phase_rainfall_data:
                 avg_rainfall = sum(phase_rainfall_data) / len(phase_rainfall_data)
                 min_rainfall = min(phase_rainfall_data)
                 max_rainfall = max(phase_rainfall_data)
                 
-                # FIXED: More accurate stress calculation
+                # More accurate stress calculation
                 stress_years = len([r for r in phase_rainfall_data if r < (water_need_mm * 0.8)])  # 80% threshold
                 stress_frequency = (stress_years / len(phase_rainfall_data) * 100) if phase_rainfall_data else 0
                 
-                # FIXED: Calculate weighted impact for this phase
+                # Calculate weighted impact for this phase
                 phase_weights = get_crop_phase_weights(crop)
                 phase_weight = phase_weights[i] if i < len(phase_weights) else 0.25
                 avg_stress_level = max(0, (water_need_mm - avg_rainfall) / water_need_mm) if water_need_mm > 0 else 0
@@ -562,62 +630,6 @@ class QuoteEngine:
             enhanced_phases.append(enhanced_phase)
         
         return enhanced_phases
-    
-    def _perform_optimized_batch_analysis(self, params: Dict[str, Any], 
-                                        planting_dates: Dict[int, str]) -> List[Dict[str, Any]]:
-        """OPTIMIZED: Perform batch analysis using server-side operations with FIXED individual year calculations"""
-        year_results = []
-        
-        print(f"\n📊 Starting FIXED OPTIMIZED batch analysis for {len(planting_dates)} seasons")
-        print(f"⚡ Method: Server-side batch processing for rainfall per phase")
-        
-        # OPTIMIZATION: Batch process all years at once
-        batch_rainfall_data = self._calculate_batch_rainfall_all_phases(
-            params['latitude'],
-            params['longitude'],
-            planting_dates,
-            params['crop']
-        )
-        
-        # Process each year with pre-computed rainfall data using FIXED calculations
-        for year, planting_date in planting_dates.items():
-            try:
-                print(f"\n🔍 Processing {year} season (planted: {planting_date})")
-                
-                # Get pre-computed rainfall data for this year
-                year_rainfall_data = batch_rainfall_data.get(year, {})
-                
-                # FIXED: Calculate individual year metrics with corrected calculations
-                year_analysis = self._analyze_individual_year_optimized_fixed(
-                    params, year, planting_date, year_rainfall_data
-                )
-                year_results.append(year_analysis)
-                
-                print(f"📈 {year} FIXED results: {year_analysis['drought_impact']:.1f}% loss, "
-                      f"{year_analysis['simulated_premium_rate']*100:.2f}% rate, "
-                      f"${year_analysis['simulated_premium_usd']:,.0f} premium, "
-                      f"${year_analysis['simulated_payout']:,.0f} payout, "
-                      f"LR: {year_analysis['loss_ratio']:.2f}")
-                
-            except Exception as e:
-                print(f"❌ Error analyzing {year}: {e}")
-                # Add error entry to maintain year tracking
-                year_results.append({
-                    'year': year,
-                    'planting_date': planting_date,
-                    'planting_year': int(planting_date.split('-')[0]) if planting_date else year-1,
-                    'harvest_year': year,
-                    'error': str(e),
-                    'drought_impact': 0.0,
-                    'simulated_premium_rate': 0.0,
-                    'simulated_premium_usd': 0.0,
-                    'simulated_payout': 0.0,
-                    'net_result': 0.0,
-                    'loss_ratio': 0.0,
-                    'rainfall_mm_by_phase': {}
-                })
-        
-        return year_results
     
     # Include all other methods from the original file with the same implementations
     # (keeping the existing optimized implementations for other methods)
@@ -1080,7 +1092,7 @@ class QuoteEngine:
         if years_to_use < self.REGULATORY_MINIMUM_YEARS:
             raise ValueError(
                 f"INSUFFICIENT DATA: Only {years_to_use} years available from {self.EARLIEST_RELIABLE_DATA}. "
-                f"Minimum {self.REGULATORY_MINIMUM_YEARS} years required, "
+                f"Minimum {self.REGULATORY_MINIMUM_YEARS} years required for basic analysis, "
                 f"{self.ACTUARIAL_MINIMUM_YEARS} years recommended for actuarial standards."
             )
         
