@@ -270,7 +270,7 @@ class QuoteEngine:
     
     def _detect_season_planting_optimized(self, point: ee.Geometry.Point, 
                                         season_start: datetime, season_end: datetime) -> Optional[str]:
-        """OPTIMIZED: Server-side planting detection using simplified approach"""
+        """OPTIMIZED: Server-side planting detection using aggregate_array() for scalability"""
         try:
             start_date = season_start.strftime('%Y-%m-%d')
             end_date = season_end.strftime('%Y-%m-%d')
@@ -280,66 +280,145 @@ class QuoteEngine:
                 .filterDate(start_date, end_date) \
                 .filterBounds(point)
             
-            # SIMPLIFIED: Get daily rainfall as a simple time series
-            def extract_daily_rainfall(image):
-                rainfall = image.reduceRegion(
+            # SERVER-SIDE: Extract rainfall values and dates using aggregate_array()
+            rainfall_values = season_chirps.select('precipitation') \
+                .map(lambda img: img.reduceRegion(
                     reducer=ee.Reducer.mean(),
                     geometry=point,
                     scale=5566,
                     maxPixels=1
-                ).get('precipitation')
+                ).get('precipitation')) \
+                .aggregate_array('')
+            
+            # SERVER-SIDE: Get corresponding dates
+            dates_array = season_chirps \
+                .aggregate_array('system:time_start')
+            
+            # SERVER-SIDE: Apply planting criteria using array operations
+            planting_result = self._apply_planting_criteria_server_optimized(
+                rainfall_values, dates_array
+            )
+            
+            # SINGLE .getInfo() call for the final result
+            result = planting_result.getInfo()
+            
+            if result and result.get('planting_found', False):
+                planting_date = result.get('planting_date')
+                criteria_info = result.get('criteria_info', {})
                 
-                return ee.Feature(None, {
-                    'date': image.date().format('YYYY-MM-dd'),
-                    'rainfall': rainfall
-                })
-            
-            # Get time series data
-            daily_features = season_chirps.map(extract_daily_rainfall)
-            
-            # OPTIMIZATION: Single .getInfo() call
-            rainfall_data = daily_features.getInfo()
-            
-            # Process client-side (simpler and more reliable)
-            return self._find_planting_date_from_data(rainfall_data)
+                print(f"🎯 Planting criteria met: {criteria_info.get('total_rainfall', 0):.1f}mm over 7 days, "
+                      f"{criteria_info.get('qualifying_days', 0)} qualifying days")
+                
+                return planting_date
+            else:
+                failure_reason = result.get('failure_reason', 'Unknown')
+                print(f"❌ No planting detected: {failure_reason}")
+                return None
             
         except Exception as e:
             print(f"❌ Error in optimized season planting detection: {e}")
             return None
     
-    def _find_planting_date_from_data(self, rainfall_data: Dict) -> Optional[str]:
-        """Process rainfall data client-side to find planting date"""
-        try:
-            # Convert to list for easier analysis
-            daily_data = []
+    def _apply_planting_criteria_server_optimized(self, rainfall_values: ee.Array, 
+                                                dates_array: ee.List) -> ee.Dictionary:
+        """SERVER-SIDE: Apply planting criteria using Earth Engine array operations"""
+        
+        # Convert rainfall values to array for efficient processing
+        rainfall_array = ee.Array(rainfall_values)
+        array_length = rainfall_array.length().get([0])
+        
+        # Create a function to check each possible 7-day window
+        def check_window(start_index):
+            start_idx = ee.Number(start_index)
+            end_idx = start_idx.add(6)
             
-            if 'features' not in rainfall_data:
-                print("⚠️ No features in rainfall data")
-                return None
-                
-            for feature in rainfall_data['features']:
-                props = feature['properties']
-                if props.get('rainfall') is not None:
-                    daily_data.append({
-                        'date': props['date'],
-                        'rainfall': float(props['rainfall'])
-                    })
+            # Extract 7-day window
+            window_slice = rainfall_array.slice(0, start_idx, end_idx.add(1))
             
-            if not daily_data:
-                print("⚠️ No valid rainfall data available for season")
-                return None
+            # Calculate total rainfall in window
+            total_rainfall = window_slice.reduce(ee.Reducer.sum(), [0]).get([0])
             
-            # Sort by date
-            daily_data.sort(key=lambda x: x['date'])
+            # Count qualifying days (≥ daily threshold)
+            qualifying_mask = window_slice.gte(self.daily_threshold)
+            qualifying_days = qualifying_mask.reduce(ee.Reducer.sum(), [0]).get([0])
             
-            print(f"📊 Processing {len(daily_data)} days of rainfall data")
+            # Check if criteria are met
+            criteria_met = total_rainfall.gte(self.rainfall_threshold_7day) \
+                .And(qualifying_days.gte(self.min_rainy_days))
             
-            # Find planting date using 7-day rolling window (client-side)
-            return self._find_planting_with_criteria_simple(daily_data)
+            # Get planting date (last date of window)
+            planting_date_millis = dates_array.get(end_idx)
+            planting_date = ee.Date(planting_date_millis).format('YYYY-MM-dd')
             
-        except Exception as e:
-            print(f"❌ Error processing rainfall data: {e}")
-            return None
+            return ee.Dictionary({
+                'start_index': start_idx,
+                'criteria_met': criteria_met,
+                'total_rainfall': total_rainfall,
+                'qualifying_days': qualifying_days,
+                'planting_date': planting_date
+            })
+        
+        # Generate indices for all possible 7-day windows
+        max_start_index = array_length.subtract(7)
+        
+        # Handle edge case where we don't have enough data
+        sufficient_data = array_length.gte(7)
+        
+        def process_windows():
+            # Create sequence of start indices
+            indices = ee.List.sequence(0, max_start_index)
+            
+            # Check each window
+            window_results = indices.map(check_window)
+            
+            # Filter to find windows that meet criteria
+            valid_windows = ee.List(window_results).filter(
+                ee.Filter.eq('criteria_met', True)
+            )
+            
+            # Check if any valid windows found
+            has_valid_window = valid_windows.size().gt(0)
+            
+            return ee.Algorithms.If(
+                has_valid_window,
+                # Return first valid window
+                ee.Dictionary({
+                    'planting_found': True,
+                    'planting_date': ee.Dictionary(valid_windows.get(0)).get('planting_date'),
+                    'criteria_info': {
+                        'total_rainfall': ee.Dictionary(valid_windows.get(0)).get('total_rainfall'),
+                        'qualifying_days': ee.Dictionary(valid_windows.get(0)).get('qualifying_days')
+                    },
+                    'total_windows_checked': indices.size(),
+                    'valid_windows_found': valid_windows.size()
+                }),
+                # No valid windows found
+                ee.Dictionary({
+                    'planting_found': False,
+                    'failure_reason': ee.String('No 7-day window met criteria (≥')
+                        .cat(ee.Number(self.rainfall_threshold_7day).format('%.1f'))
+                        .cat('mm total, ≥')
+                        .cat(ee.Number(self.min_rainy_days).format('%.0f'))
+                        .cat(' days ≥')
+                        .cat(ee.Number(self.daily_threshold).format('%.1f'))
+                        .cat('mm)'),
+                    'total_windows_checked': indices.size(),
+                    'array_length': array_length
+                })
+            )
+        
+        # Return result based on data availability
+        return ee.Algorithms.If(
+            sufficient_data,
+            process_windows(),
+            ee.Dictionary({
+                'planting_found': False,
+                'failure_reason': ee.String('Insufficient data: only ')
+                    .cat(array_length.format('%.0f'))
+                    .cat(' days available, need at least 7'),
+                'array_length': array_length
+            })
+        )
     
     def _find_planting_with_criteria_simple(self, daily_data: List[Dict]) -> Optional[str]:
         """Find planting date using refined rainfall criteria"""
