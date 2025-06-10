@@ -280,23 +280,22 @@ class QuoteEngine:
                 .filterDate(start_date, end_date) \
                 .filterBounds(point)
             
-            # SERVER-SIDE: Extract rainfall values and dates using aggregate_array()
-            rainfall_values = season_chirps.select('precipitation') \
-                .map(lambda img: img.reduceRegion(
+            # SERVER-SIDE: Extract rainfall values using aggregate_array()
+            def extract_rainfall_value(image):
+                return image.reduceRegion(
                     reducer=ee.Reducer.mean(),
                     geometry=point,
                     scale=5566,
                     maxPixels=1
-                ).get('precipitation')) \
-                .aggregate_array('')
+                ).get('precipitation')
             
-            # SERVER-SIDE: Get corresponding dates
-            dates_array = season_chirps \
-                .aggregate_array('system:time_start')
+            # Get arrays of rainfall values and timestamps
+            rainfall_values = season_chirps.map(extract_rainfall_value).aggregate_array('precipitation')
+            dates_millis = season_chirps.aggregate_array('system:time_start')
             
             # SERVER-SIDE: Apply planting criteria using array operations
             planting_result = self._apply_planting_criteria_server_optimized(
-                rainfall_values, dates_array
+                rainfall_values, dates_millis
             )
             
             # SINGLE .getInfo() call for the final result
@@ -319,11 +318,11 @@ class QuoteEngine:
             print(f"❌ Error in optimized season planting detection: {e}")
             return None
     
-    def _apply_planting_criteria_server_optimized(self, rainfall_values: ee.Array, 
-                                                dates_array: ee.List) -> ee.Dictionary:
+    def _apply_planting_criteria_server_optimized(self, rainfall_values: ee.List, 
+                                                dates_millis: ee.List) -> ee.Dictionary:
         """SERVER-SIDE: Apply planting criteria using Earth Engine array operations"""
         
-        # Convert rainfall values to array for efficient processing
+        # Convert to arrays for efficient processing
         rainfall_array = ee.Array(rainfall_values)
         array_length = rainfall_array.length().get([0])
         
@@ -332,7 +331,7 @@ class QuoteEngine:
             start_idx = ee.Number(start_index)
             end_idx = start_idx.add(6)
             
-            # Extract 7-day window
+            # Extract 7-day window using array slice
             window_slice = rainfall_array.slice(0, start_idx, end_idx.add(1))
             
             # Calculate total rainfall in window
@@ -346,8 +345,8 @@ class QuoteEngine:
             criteria_met = total_rainfall.gte(self.rainfall_threshold_7day) \
                 .And(qualifying_days.gte(self.min_rainy_days))
             
-            # Get planting date (last date of window)
-            planting_date_millis = dates_array.get(end_idx)
+            # Get planting date (last date of window) and format it
+            planting_date_millis = dates_millis.get(end_idx)
             planting_date = ee.Date(planting_date_millis).format('YYYY-MM-dd')
             
             return ee.Dictionary({
@@ -372,7 +371,7 @@ class QuoteEngine:
             window_results = indices.map(check_window)
             
             # Filter to find windows that meet criteria
-            valid_windows = ee.List(window_results).filter(
+            valid_windows = window_results.filter(
                 ee.Filter.eq('criteria_met', True)
             )
             
