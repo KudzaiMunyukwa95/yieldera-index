@@ -1,29 +1,11 @@
-"best_year": {
-                "year": best_year['year'],
-                "drought_impact": round(best_year['drought_impact'], 1),
-                "premium_paid": round(uniform_premium, 2),
-                "payout_received": round(best_year['simulated_payout'], 2),
-                "net_result": round(best_year['net_result'], 2),
-                "description": f"Excellent growing conditions with only {best_year['drought_impact']:.1f}% drought impact"
-            },
-            "worst_year": {
-                "year": worst_year['year'],
-                "drought_impact": round(worst_year['drought_impact'], 1),
-                "premium_paid": round(uniform_premium, 2),
-                "payout_received": round(worst_year['simulated_payout'], 2),
-                "net_result": round(worst_year['net_result'], 2),
-                "description": f"Severe drought year with {worst_year['drought_impact']:.1f}% loss, receiving ${worst_year['simulated_payout']:,.0f} payout"
-            },
-            "value_for_money": {
+"value_for_money": {
                 "loss_ratio": round(loss_ratio, 3),
                 "interpretation": value_assessment,
                 "rate_structure": f"{actuarial_quote['premium_rate']*100:.2f}% applied uniformly across all historical years"
             }
         }
     
-    # Include all other optimized methods from the original implementation
-    # (keeping the existing optimized implementations for planting detection, rainfall calculation, etc.)
-    
+    # Helper methods for planting detection and rainfall calculation
     def _detect_planting_dates_optimized(self, latitude: float, longitude: float, 
                                        years: List[int]) -> Dict[int, Optional[str]]:
         """OPTIMIZED: Detect planting dates using server-side batch operations"""
@@ -381,7 +363,7 @@
         
         return enhanced_phases
     
-    # Include all utility methods from original implementation
+    # Utility methods
     def _validate_and_extract_params(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and extract parameters with enhanced deductible and loadings support"""
         # Required fields
@@ -458,7 +440,6 @@
             'buffer_radius': request_data.get('buffer_radius', 1500)
         }
     
-    # Include all other utility methods with same implementations...
     def _validate_actuarial_data_availability(self, target_year: int, quote_type: str) -> Dict[str, Any]:
         """Validate data availability against actuarial standards"""
         current_year = datetime.now().year
@@ -694,8 +675,8 @@
             else:  # Too late for current season
                 return "historical"
         else:
-            return "historical""""
-Actuarially Correct Quote Engine V2.4 - Fixed Historical Simulation Logic
+            return "historical" """
+Actuarially Correct Quote Engine V2.4 - Clean Implementation
 Ensures uniform premium rates across all historical years in simulation breakdown
 """
 
@@ -731,9 +712,6 @@ class QuoteEngine:
         self.base_loading_factor = 1.5  # Base loading multiplier
         self.minimum_premium_rate = 0.015  # 1.5% minimum
         self.maximum_premium_rate = 0.25   # 25% maximum
-        
-        # ACTUARIAL FIX: Remove individual year premium calculation
-        # Historical simulation uses UNIFORM RATE across all years
         
         # Dynamic deductible defaults (now configurable)
         self.default_deductible_rate = 0.05  # 5% default, now flexible
@@ -781,12 +759,6 @@ class QuoteEngine:
     def execute_quote(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute actuarially correct quote with proper historical simulation
-        
-        Args:
-            request_data: Quote request parameters
-            
-        Returns:
-            Enhanced quote with actuarially correct historical analysis
         """
         try:
             print(f"\n🚀 Starting ACTUARIALLY CORRECT quote execution")
@@ -1281,4 +1253,21 @@ class QuoteEngine:
                 "overall_loss_ratio": round(loss_ratio, 3)
             },
             "best_year": {
-                "year
+                "year": best_year['year'],
+                "drought_impact": round(best_year['drought_impact'], 1),
+                "premium_paid": round(uniform_premium, 2),
+                "payout_received": round(best_year['simulated_payout'], 2),
+                "net_result": round(best_year['net_result'], 2),
+                "description": f"Excellent growing conditions with only {best_year['drought_impact']:.1f}% drought impact"
+            },
+            "worst_year": {
+                "year": worst_year['year'],
+                "drought_impact": round(worst_year['drought_impact'], 1),
+                "premium_paid": round(uniform_premium, 2),
+                "payout_received": round(worst_year['simulated_payout'], 2),
+                "net_result": round(worst_year['net_result'], 2),
+                "description": f"Severe drought year with {worst_year['drought_impact']:.1f}% loss, receiving ${worst_year['simulated_payout']:,.0f} payout"
+            },
+            "value_for_money": {
+                "loss_ratio": round(loss_ratio, 3),
+                "interpretation": value
