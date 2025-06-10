@@ -270,7 +270,7 @@ class QuoteEngine:
     
     def _detect_season_planting_optimized(self, point: ee.Geometry.Point, 
                                         season_start: datetime, season_end: datetime) -> Optional[str]:
-        """OPTIMIZED: Server-side planting detection using aggregate_array() for scalability"""
+        """OPTIMIZED: Server-side planting detection using simplified approach"""
         try:
             start_date = season_start.strftime('%Y-%m-%d')
             end_date = season_end.strftime('%Y-%m-%d')
@@ -280,144 +280,66 @@ class QuoteEngine:
                 .filterDate(start_date, end_date) \
                 .filterBounds(point)
             
-            # SERVER-SIDE: Extract rainfall values using aggregate_array()
-            def extract_rainfall_value(image):
-                return image.reduceRegion(
+            # SIMPLIFIED: Get daily rainfall as a simple time series
+            def extract_daily_rainfall(image):
+                rainfall = image.reduceRegion(
                     reducer=ee.Reducer.mean(),
                     geometry=point,
                     scale=5566,
                     maxPixels=1
                 ).get('precipitation')
-            
-            # Get arrays of rainfall values and timestamps
-            rainfall_values = season_chirps.map(extract_rainfall_value).aggregate_array('precipitation')
-            dates_millis = season_chirps.aggregate_array('system:time_start')
-            
-            # SERVER-SIDE: Apply planting criteria using array operations
-            planting_result = self._apply_planting_criteria_server_optimized(
-                rainfall_values, dates_millis
-            )
-            
-            # SINGLE .getInfo() call for the final result
-            result = planting_result.getInfo()
-            
-            if result and result.get('planting_found', False):
-                planting_date = result.get('planting_date')
-                criteria_info = result.get('criteria_info', {})
                 
-                print(f"🎯 Planting criteria met: {criteria_info.get('total_rainfall', 0):.1f}mm over 7 days, "
-                      f"{criteria_info.get('qualifying_days', 0)} qualifying days")
-                
-                return planting_date
-            else:
-                failure_reason = result.get('failure_reason', 'Unknown')
-                print(f"❌ No planting detected: {failure_reason}")
-                return None
+                return ee.Feature(None, {
+                    'date': image.date().format('YYYY-MM-dd'),
+                    'rainfall': rainfall
+                })
+            
+            # Get time series data
+            daily_features = season_chirps.map(extract_daily_rainfall)
+            
+            # OPTIMIZATION: Single .getInfo() call
+            rainfall_data = daily_features.getInfo()
+            
+            # Process client-side (simpler and more reliable)
+            return self._find_planting_date_from_data(rainfall_data)
             
         except Exception as e:
             print(f"❌ Error in optimized season planting detection: {e}")
             return None
     
-    def _apply_planting_criteria_server_optimized(self, rainfall_values: ee.List, 
-                                                dates_millis: ee.List) -> ee.Dictionary:
-        """SERVER-SIDE: Apply planting criteria using Earth Engine array operations"""
-        
-        # Convert to arrays for efficient processing
-        rainfall_array = ee.Array(rainfall_values)
-        array_length = rainfall_array.length().get([0])
-        
-        # Create a function to check each possible 7-day window
-        def check_window(start_index):
-            start_idx = ee.Number(start_index)
-            end_idx = start_idx.add(6)
+    def _find_planting_date_from_data(self, rainfall_data: Dict) -> Optional[str]:
+        """Process rainfall data client-side to find planting date"""
+        try:
+            # Convert to list for easier analysis
+            daily_data = []
             
-            # Extract 7-day window using array slice
-            window_slice = rainfall_array.slice(0, start_idx, end_idx.add(1))
+            if 'features' not in rainfall_data:
+                print("⚠️ No features in rainfall data")
+                return None
+                
+            for feature in rainfall_data['features']:
+                props = feature['properties']
+                if props.get('rainfall') is not None:
+                    daily_data.append({
+                        'date': props['date'],
+                        'rainfall': float(props['rainfall'])
+                    })
             
-            # Calculate total rainfall in window
-            total_rainfall = window_slice.reduce(ee.Reducer.sum(), [0]).get([0])
+            if not daily_data:
+                print("⚠️ No valid rainfall data available for season")
+                return None
             
-            # Count qualifying days (≥ daily threshold)
-            qualifying_mask = window_slice.gte(self.daily_threshold)
-            qualifying_days = qualifying_mask.reduce(ee.Reducer.sum(), [0]).get([0])
+            # Sort by date
+            daily_data.sort(key=lambda x: x['date'])
             
-            # Check if criteria are met
-            criteria_met = total_rainfall.gte(self.rainfall_threshold_7day) \
-                .And(qualifying_days.gte(self.min_rainy_days))
+            print(f"📊 Processing {len(daily_data)} days of rainfall data")
             
-            # Get planting date (last date of window) and format it
-            planting_date_millis = dates_millis.get(end_idx)
-            planting_date = ee.Date(planting_date_millis).format('YYYY-MM-dd')
+            # Find planting date using 7-day rolling window (client-side)
+            return self._find_planting_with_criteria_simple(daily_data)
             
-            return ee.Dictionary({
-                'start_index': start_idx,
-                'criteria_met': criteria_met,
-                'total_rainfall': total_rainfall,
-                'qualifying_days': qualifying_days,
-                'planting_date': planting_date
-            })
-        
-        # Generate indices for all possible 7-day windows
-        max_start_index = array_length.subtract(7)
-        
-        # Handle edge case where we don't have enough data
-        sufficient_data = array_length.gte(7)
-        
-        def process_windows():
-            # Create sequence of start indices
-            indices = ee.List.sequence(0, max_start_index)
-            
-            # Check each window
-            window_results = indices.map(check_window)
-            
-            # Filter to find windows that meet criteria
-            valid_windows = window_results.filter(
-                ee.Filter.eq('criteria_met', True)
-            )
-            
-            # Check if any valid windows found
-            has_valid_window = valid_windows.size().gt(0)
-            
-            return ee.Algorithms.If(
-                has_valid_window,
-                # Return first valid window
-                ee.Dictionary({
-                    'planting_found': True,
-                    'planting_date': ee.Dictionary(valid_windows.get(0)).get('planting_date'),
-                    'criteria_info': {
-                        'total_rainfall': ee.Dictionary(valid_windows.get(0)).get('total_rainfall'),
-                        'qualifying_days': ee.Dictionary(valid_windows.get(0)).get('qualifying_days')
-                    },
-                    'total_windows_checked': indices.size(),
-                    'valid_windows_found': valid_windows.size()
-                }),
-                # No valid windows found
-                ee.Dictionary({
-                    'planting_found': False,
-                    'failure_reason': ee.String('No 7-day window met criteria (≥')
-                        .cat(ee.Number(self.rainfall_threshold_7day).format('%.1f'))
-                        .cat('mm total, ≥')
-                        .cat(ee.Number(self.min_rainy_days).format('%.0f'))
-                        .cat(' days ≥')
-                        .cat(ee.Number(self.daily_threshold).format('%.1f'))
-                        .cat('mm)'),
-                    'total_windows_checked': indices.size(),
-                    'array_length': array_length
-                })
-            )
-        
-        # Return result based on data availability
-        return ee.Algorithms.If(
-            sufficient_data,
-            process_windows(),
-            ee.Dictionary({
-                'planting_found': False,
-                'failure_reason': ee.String('Insufficient data: only ')
-                    .cat(array_length.format('%.0f'))
-                    .cat(' days available, need at least 7'),
-                'array_length': array_length
-            })
-        )
+        except Exception as e:
+            print(f"❌ Error processing rainfall data: {e}")
+            return None
     
     def _find_planting_with_criteria_simple(self, daily_data: List[Dict]) -> Optional[str]:
         """Find planting date using refined rainfall criteria"""
@@ -616,16 +538,15 @@ class QuoteEngine:
         """OPTIMIZED: Analyze individual year with pre-computed rainfall data"""
         # Get crop phases using your crops.py structure
         crop_phases = get_crop_phases(params['crop'])
-        phase_weights = get_crop_phase_weights(params['crop'])
         
         # Calculate season end date
         plant_date = datetime.strptime(planting_date, '%Y-%m-%d')
         total_season_days = crop_phases[-1][1]  # end_day of last phase
         season_end = plant_date + timedelta(days=total_season_days)
         
-        # Calculate drought impact and capture detailed phase analysis
-        drought_impact, detailed_phases = self._calculate_drought_impact_with_details(
-            crop_phases, rainfall_by_phase, params['crop'], phase_weights
+        # Calculate drought impact using phase-specific analysis (pre-computed data)
+        drought_impact = self._calculate_drought_impact_by_phases(
+            crop_phases, rainfall_by_phase, params['crop']
         )
         
         # Simulate individual year premium rate
@@ -639,10 +560,6 @@ class QuoteEngine:
         sum_insured = params['expected_yield'] * params['price_per_ton'] * params.get('area_ha', 1.0)
         simulated_premium = sum_insured * individual_premium_rate
         simulated_payout = sum_insured * (drought_impact / 100.0)
-        
-        # Apply deductible to payout
-        deductible_amount = sum_insured * params.get('deductible_rate', 0.05)
-        final_payout = max(0, simulated_payout - deductible_amount)
         
         # Add year alignment info
         planting_year = int(planting_date.split('-')[0])
@@ -658,19 +575,10 @@ class QuoteEngine:
             'simulated_premium_rate': individual_premium_rate,
             'simulated_premium_usd': simulated_premium,
             'simulated_payout': simulated_payout,
-            'final_payout_after_deductible': final_payout,
-            'deductible_applied': deductible_amount,
-            'net_result': final_payout - simulated_premium,
+            'net_result': simulated_payout - simulated_premium,
             'loss_ratio': (simulated_payout / simulated_premium) if simulated_premium > 0 else 0,
             'rainfall_mm_by_phase': rainfall_by_phase,
-            'phase_details': detailed_phases,  # NEW: Detailed phase breakdown
-            'critical_periods': len([p for p, r in rainfall_by_phase.items() if r < 30]),
-            'stress_summary': {
-                'total_phases': len(detailed_phases),
-                'stressed_phases': len([p for p in detailed_phases if p['stress_percent'] > 0]),
-                'most_stressed_phase': max(detailed_phases, key=lambda x: x['stress_percent'])['phase_name'] if detailed_phases else None,
-                'average_stress': sum(p['stress_percent'] for p in detailed_phases) / len(detailed_phases) if detailed_phases else 0
-            }
+            'critical_periods': len([p for p, r in rainfall_by_phase.items() if r < 30])
         }
     
     # [Include all other methods from previous version - validation, zone detection, etc.]
@@ -865,12 +773,12 @@ class QuoteEngine:
             'buffer_radius': request_data.get('buffer_radius', 1500)
         }
     
-    def _calculate_drought_impact_with_details(self, crop_phases: List[Tuple], 
-                                             rainfall_by_phase: Dict[str, float],
-                                             crop: str, phase_weights: List[float]) -> Tuple[float, List[Dict]]:
-        """Calculate drought impact and return detailed phase breakdown for frontend"""
+    def _calculate_drought_impact_by_phases(self, crop_phases: List[Tuple], 
+                                          rainfall_by_phase: Dict[str, float],
+                                          crop: str) -> float:
+        """Calculate drought impact using phase-specific weights from crops.py"""
+        phase_weights = get_crop_phase_weights(crop)  # Use your function
         total_impact = 0.0
-        detailed_phases = []
         
         for i, (start_day, end_day, trigger_mm, exit_mm, phase_name, water_need_mm, obs_window) in enumerate(crop_phases):
             actual_rainfall = rainfall_by_phase.get(phase_name, 0)
@@ -878,56 +786,19 @@ class QuoteEngine:
             # Calculate phase-specific stress
             if actual_rainfall >= water_need_mm:
                 phase_stress = 0.0  # No stress
-                stress_category = "No Stress"
             else:
                 # Linear stress calculation
                 phase_stress = (water_need_mm - actual_rainfall) / water_need_mm
                 phase_stress = min(phase_stress, 1.0)  # Cap at 100% stress
-                
-                # Categorize stress level
-                if phase_stress < 0.2:
-                    stress_category = "Mild Stress"
-                elif phase_stress < 0.5:
-                    stress_category = "Moderate Stress"
-                elif phase_stress < 0.8:
-                    stress_category = "Severe Stress"
-                else:
-                    stress_category = "Extreme Stress"
             
             # Apply phase weight
             weighted_impact = phase_stress * phase_weights[i] * 100
             total_impact += weighted_impact
             
-            # Create detailed phase record for frontend
-            phase_detail = {
-                'phase_number': i + 1,
-                'phase_name': phase_name,
-                'start_day': start_day,
-                'end_day': end_day,
-                'duration_days': end_day - start_day + 1,
-                'actual_rainfall_mm': round(actual_rainfall, 1),
-                'required_rainfall_mm': water_need_mm,
-                'rainfall_deficit_mm': max(0, water_need_mm - actual_rainfall),
-                'rainfall_surplus_mm': max(0, actual_rainfall - water_need_mm),
-                'stress_factor': round(phase_stress, 3),
-                'stress_percent': round(phase_stress * 100, 1),
-                'stress_category': stress_category,
-                'phase_weight': phase_weights[i],
-                'weighted_impact': round(weighted_impact, 1),
-                'trigger_threshold_mm': trigger_mm,
-                'exit_threshold_mm': exit_mm,
-                'observation_window_days': obs_window,
-                'rainfall_adequacy': 'Adequate' if actual_rainfall >= water_need_mm else 'Inadequate',
-                'rainfall_ratio': round(actual_rainfall / water_need_mm, 2) if water_need_mm > 0 else 0
-            }
-            
-            detailed_phases.append(phase_detail)
-            
-            # Keep the existing log for backward compatibility
             print(f"📊 {phase_name}: {actual_rainfall:.1f}mm/{water_need_mm}mm, "
                   f"stress: {phase_stress*100:.1f}%, weighted: {weighted_impact:.1f}%")
         
-        return min(total_impact, 100.0), detailed_phases  # Cap total impact at 100%
+        return min(total_impact, 100.0)  # Cap total impact at 100%
     
     def _calculate_enhanced_quote_v2(self, params: Dict[str, Any], 
                                    year_analysis: List[Dict[str, Any]],
