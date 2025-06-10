@@ -811,8 +811,7 @@ def get_simulation_details(quote_id):
                 "average_payout": sum(y.get('simulated_payout', 0) for y in simulation_data) / len(simulation_data),
                 "worst_year": max(simulation_data, key=lambda x: x.get('drought_impact', 0))['year'],
                 "best_year": min(simulation_data, key=lambda x: x.get('drought_impact', 0))['year']
-            },
-            "enhanced_features_available": ENHANCED_FEATURES_AVAILABLE
+            }
         })
         
     except Exception as e:
@@ -1031,6 +1030,7 @@ def validate_quote_request():
             "message": str(e)
         }), 500
 
+# Report generation endpoint
 @quotes_bp.route('/report/<quote_id>', methods=['GET'])
 def generate_detailed_report(quote_id):
     """Generate standalone detailed report for a quote"""
@@ -1079,7 +1079,7 @@ def generate_detailed_report(quote_id):
             "message": str(e)
         }), 500
 
-# Crop-specific enhanced thresholds endpoint (only if enhanced features available)
+# Enhanced crop thresholds endpoint (only if enhanced features available)
 if ENHANCED_FEATURES_AVAILABLE and enhanced_drought_calculator:
     @quotes_bp.route('/thresholds/<crop>', methods=['GET'])
     def get_crop_enhanced_thresholds(crop):
