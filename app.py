@@ -15,7 +15,7 @@ from config import Config
 from core.gee_client import initialize_earth_engine
 
 # Enhanced API modules
-from api.enhanced_quotes import quotes_bp  # Enhanced with industry-standard drought detection
+from api.quotes import quotes_bp  # Enhanced with industry-standard drought detection
 from api.fields import fields_bp
 from api.health import health_bp
 
