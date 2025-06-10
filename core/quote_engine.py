@@ -1,7 +1,6 @@
 """
-Enhanced Quote Engine V2 with all requested fixes and proper crops.py integration
-Resolves crop phase conflicts and implements dynamic deductibles, custom loadings, 
-year alignment, rainfall tracking, and field-level storytelling
+Enhanced Quote Engine V2 with 20-Year Actuarial Standard
+Implements proper actuarial data requirements for weather index insurance
 """
 
 import ee
@@ -30,10 +29,16 @@ except ImportError:
     print("🗺️ Using crops.py zone data (zones.py not found)")
 
 class QuoteEngine:
-    """Enhanced quote engine V2 with comprehensive fixes and proper crops.py integration"""
+    """Enhanced quote engine V2 with 20-year actuarial standard compliance"""
     
     def __init__(self):
-        """Initialize with enhanced components using your crops.py structure"""
+        """Initialize with actuarial-grade data requirements"""
+        # ACTUARIAL DATA REQUIREMENTS - Updated to industry standards
+        self.ACTUARIAL_MINIMUM_YEARS = 20      # Industry standard for weather index insurance
+        self.REGULATORY_MINIMUM_YEARS = 15     # Absolute minimum for regulatory approval
+        self.OPTIMAL_YEARS_RANGE = 25          # Optimal for capturing climate cycles
+        self.EARLIEST_RELIABLE_DATA = 1981     # CHIRPS reliable data starts from 1981
+        
         # Enhanced simulation parameters
         self.base_loading_factor = 1.5  # Base loading multiplier
         self.minimum_premium_rate = 0.015  # 1.5% minimum
@@ -61,24 +66,26 @@ class QuoteEngine:
         self.season_end_month = 1  # January
         self.season_end_day = 31
         
-        print("🔧 Quote Engine V2 initialized with enhanced features")
+        print("🔧 Quote Engine V2 initialized with actuarial standards")
         print("📚 Using crops.py with 9 crop types and AEZ zones")
         print("🌱 Planting detection: Rainfall-only (no NDVI)")
         print("📊 Features: Dynamic deductibles, custom loadings, year alignment")
         print("🗓️ Season focus: Summer crops only (Oct-Jan planting)")
+        print(f"📈 ACTUARIAL STANDARD: {self.ACTUARIAL_MINIMUM_YEARS} years minimum")
+        print(f"📅 Data period: {self.EARLIEST_RELIABLE_DATA} onwards ({datetime.now().year - self.EARLIEST_RELIABLE_DATA + 1} years available)")
     
     def execute_quote(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute quote with enhanced year-by-year simulation and all requested fixes
+        Execute quote with actuarial-grade 20-year analysis
         
         Args:
             request_data: Quote request parameters
             
         Returns:
-            Enhanced quote with detailed simulation data and fixes
+            Enhanced quote with 20-year historical analysis
         """
         try:
-            print(f"\n🚀 Starting enhanced quote execution V2")
+            print(f"\n🚀 Starting actuarial-grade quote execution")
             start_time = datetime.now()
             
             # Validate and extract parameters (with deductible and loadings support)
@@ -95,9 +102,23 @@ class QuoteEngine:
             print(f"💰 Deductible: {params['deductible_rate']*100:.1f}%")
             print(f"📊 Custom loadings: {len(params['custom_loadings'])} types")
             
-            # Generate historical years for analysis (with proper year alignment)
-            historical_years = self._get_historical_years_aligned(params['year'], quote_type)
-            print(f"📊 Historical analysis: {len(historical_years)} years ({min(historical_years)}-{max(historical_years)})")
+            # ACTUARIAL VALIDATION: Check data availability first
+            data_validation = self._validate_actuarial_data_availability(params['year'], quote_type)
+            
+            if not data_validation['meets_actuarial_standard']:
+                if data_validation['meets_regulatory_minimum']:
+                    print(f"⚠️ WARNING: Only {data_validation['years_available']} years available")
+                    print(f"📊 Below actuarial standard ({self.ACTUARIAL_MINIMUM_YEARS} years) but above regulatory minimum")
+                else:
+                    raise ValueError(
+                        f"INSUFFICIENT DATA: Only {data_validation['years_available']} years available. "
+                        f"Minimum {self.REGULATORY_MINIMUM_YEARS} years required for basic analysis, "
+                        f"{self.ACTUARIAL_MINIMUM_YEARS} years recommended for actuarial standards."
+                    )
+            
+            # Generate historical years for analysis (actuarial-grade)
+            historical_years = self._get_actuarial_years_analysis(params['year'], quote_type)
+            print(f"📊 ACTUARIAL ANALYSIS: {len(historical_years)} years ({min(historical_years)}-{max(historical_years)})")
             
             # Detect planting dates using refined rainfall-only logic
             planting_dates = self._detect_planting_dates_rainfall_only(
@@ -109,8 +130,15 @@ class QuoteEngine:
             # Filter valid planting dates and validate seasons
             valid_planting_dates = self._validate_seasonal_planting_dates(planting_dates)
             
-            if len(valid_planting_dates) < 3:
-                print(f"⚠️ Warning: Only {len(valid_planting_dates)} valid planting seasons detected")
+            # ACTUARIAL VALIDATION: Ensure sufficient valid seasons
+            if len(valid_planting_dates) < (len(historical_years) * 0.7):  # 70% success rate minimum
+                print(f"⚠️ WARNING: Low planting detection rate: {len(valid_planting_dates)}/{len(historical_years)} seasons")
+            
+            if len(valid_planting_dates) < 10:  # Absolute minimum for statistical significance
+                raise ValueError(
+                    f"INSUFFICIENT VALID SEASONS: Only {len(valid_planting_dates)} valid planting seasons detected. "
+                    f"Minimum 10 seasons required for statistical reliability."
+                )
             
             # Perform detailed year-by-year drought analysis (with rainfall per phase)
             year_by_year_analysis = self._perform_detailed_analysis_with_rainfall(
@@ -121,6 +149,17 @@ class QuoteEngine:
             quote_result = self._calculate_enhanced_quote_v2(
                 params, year_by_year_analysis, valid_planting_dates
             )
+            
+            # Add actuarial validation results
+            quote_result['actuarial_validation'] = data_validation
+            quote_result['data_quality_metrics'] = {
+                'total_years_analyzed': len(historical_years),
+                'valid_seasons_detected': len(valid_planting_dates),
+                'detection_success_rate': (len(valid_planting_dates) / len(historical_years)) * 100,
+                'meets_actuarial_standard': data_validation['meets_actuarial_standard'],
+                'data_period': f"{min(historical_years)}-{max(historical_years)}",
+                'climate_cycles_captured': self._assess_climate_cycles(historical_years)
+            }
             
             # Add enhanced simulation results with all requested features
             quote_result['year_by_year_simulation'] = year_by_year_analysis
@@ -144,18 +183,137 @@ class QuoteEngine:
             
             execution_time = (datetime.now() - start_time).total_seconds()
             quote_result['execution_time_seconds'] = round(execution_time, 2)
-            quote_result['version'] = "2.2.0-Enhanced"
+            quote_result['version'] = "2.3.0-Actuarial"
             
-            print(f"✅ Quote completed in {execution_time:.2f} seconds")
+            print(f"✅ Actuarial-grade quote completed in {execution_time:.2f} seconds")
             print(f"💰 Premium rate: {quote_result['premium_rate']*100:.2f}%")
             print(f"💵 Gross premium: ${quote_result['gross_premium']:,.2f}")
             print(f"📈 Total loadings: ${quote_result['total_loadings']:,.2f}")
+            print(f"📊 Data quality: {quote_result['data_quality_metrics']['detection_success_rate']:.1f}% valid seasons")
             
             return quote_result
             
         except Exception as e:
             print(f"❌ Quote execution error: {e}")
             raise
+    
+    def _validate_actuarial_data_availability(self, target_year: int, quote_type: str) -> Dict[str, Any]:
+        """Validate data availability against actuarial standards"""
+        current_year = datetime.now().year
+        
+        if quote_type == "historical":
+            # For historical quotes, analyze seasons that ended before target year
+            max_available_years = target_year - self.EARLIEST_RELIABLE_DATA
+            latest_analysis_year = target_year - 1
+        else:
+            # For prospective quotes, use all available complete seasons
+            max_available_years = current_year - self.EARLIEST_RELIABLE_DATA
+            latest_analysis_year = current_year - 1
+        
+        # Determine how many years we can actually use
+        years_we_can_analyze = min(self.OPTIMAL_YEARS_RANGE, max_available_years)
+        
+        validation_result = {
+            'years_available': years_we_can_analyze,
+            'meets_actuarial_standard': years_we_can_analyze >= self.ACTUARIAL_MINIMUM_YEARS,
+            'meets_regulatory_minimum': years_we_can_analyze >= self.REGULATORY_MINIMUM_YEARS,
+            'actuarial_standard_years': self.ACTUARIAL_MINIMUM_YEARS,
+            'regulatory_minimum_years': self.REGULATORY_MINIMUM_YEARS,
+            'optimal_years': self.OPTIMAL_YEARS_RANGE,
+            'data_quality_rating': self._get_data_quality_rating(years_we_can_analyze),
+            'analysis_period': f"{latest_analysis_year - years_we_can_analyze + 1} to {latest_analysis_year}",
+            'quote_type': quote_type,
+            'target_year': target_year
+        }
+        
+        # Add recommendations
+        if not validation_result['meets_actuarial_standard']:
+            validation_result['recommendations'] = [
+                f"Wait until {self.EARLIEST_RELIABLE_DATA + self.ACTUARIAL_MINIMUM_YEARS} for full actuarial standard",
+                "Consider using regulatory minimum with appropriate risk adjustments",
+                "Add additional loading factors to account for data uncertainty",
+                "Implement more conservative payout thresholds"
+            ]
+        
+        return validation_result
+    
+    def _get_data_quality_rating(self, years_available: int) -> str:
+        """Rate data quality based on years available"""
+        if years_available >= self.OPTIMAL_YEARS_RANGE:
+            return "Excellent"
+        elif years_available >= self.ACTUARIAL_MINIMUM_YEARS:
+            return "Good - Meets Actuarial Standard"
+        elif years_available >= self.REGULATORY_MINIMUM_YEARS:
+            return "Acceptable - Meets Regulatory Minimum"
+        elif years_available >= 10:
+            return "Poor - Below Standards"
+        else:
+            return "Insufficient - Cannot Proceed"
+    
+    def _assess_climate_cycles(self, historical_years: List[int]) -> Dict[str, Any]:
+        """Assess climate cycle coverage in the analysis period"""
+        years_span = max(historical_years) - min(historical_years) + 1
+        
+        # Typical climate cycles
+        enso_cycles = years_span / 3.5  # El Niño/La Niña cycle ~3-7 years
+        decadal_cycles = years_span / 10  # Decadal climate patterns
+        
+        return {
+            'analysis_span_years': years_span,
+            'estimated_enso_cycles': round(enso_cycles, 1),
+            'estimated_decadal_cycles': round(decadal_cycles, 1),
+            'cycle_coverage_rating': (
+                "Excellent" if enso_cycles >= 5 else
+                "Good" if enso_cycles >= 3 else
+                "Fair" if enso_cycles >= 2 else
+                "Limited"
+            )
+        }
+    
+    def _get_actuarial_years_analysis(self, target_year: int, quote_type: str) -> List[int]:
+        """Generate actuarial-grade historical years (minimum 20 years)"""
+        current_year = datetime.now().year
+        
+        if quote_type == "historical":
+            # For historical quotes, analyze seasons that ended before target year
+            latest_analysis_year = target_year - 1
+            max_available_years = latest_analysis_year - self.EARLIEST_RELIABLE_DATA + 1
+        else:
+            # For prospective quotes, use all available complete seasons
+            latest_analysis_year = current_year - 1
+            max_available_years = latest_analysis_year - self.EARLIEST_RELIABLE_DATA + 1
+        
+        # Determine how many years to use (aim for optimal, minimum actuarial standard)
+        years_to_use = min(self.OPTIMAL_YEARS_RANGE, max_available_years)
+        
+        # ENFORCE ACTUARIAL MINIMUM
+        if years_to_use < self.REGULATORY_MINIMUM_YEARS:
+            raise ValueError(
+                f"INSUFFICIENT DATA: Only {years_to_use} years available from {self.EARLIEST_RELIABLE_DATA}. "
+                f"Minimum {self.REGULATORY_MINIMUM_YEARS} years required, "
+                f"{self.ACTUARIAL_MINIMUM_YEARS} years recommended for actuarial standards."
+            )
+        
+        # Calculate start year
+        start_year = latest_analysis_year - years_to_use + 1
+        
+        # Generate the years list
+        historical_years = list(range(start_year, latest_analysis_year + 1))
+        
+        # Final validation
+        if len(historical_years) < self.REGULATORY_MINIMUM_YEARS:
+            raise ValueError(
+                f"CONFIGURATION ERROR: Generated {len(historical_years)} years, "
+                f"minimum {self.REGULATORY_MINIMUM_YEARS} required"
+            )
+        
+        # Log actuarial compliance
+        if len(historical_years) >= self.ACTUARIAL_MINIMUM_YEARS:
+            print(f"✅ ACTUARIAL COMPLIANCE: {len(historical_years)} years meets {self.ACTUARIAL_MINIMUM_YEARS}-year standard")
+        else:
+            print(f"⚠️ REGULATORY MINIMUM: {len(historical_years)} years (below {self.ACTUARIAL_MINIMUM_YEARS}-year actuarial standard)")
+        
+        return historical_years
     
     def _validate_and_extract_params(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and extract parameters with enhanced deductible and loadings support"""
@@ -199,8 +357,8 @@ class QuoteEngine:
         
         # Year validation for seasonal appropriateness
         current_year = datetime.now().year
-        if year < 2018 or year > current_year + 2:
-            raise ValueError(f"Year must be between 2018 and {current_year + 2}")
+        if year < self.EARLIEST_RELIABLE_DATA or year > current_year + 2:
+            raise ValueError(f"Year must be between {self.EARLIEST_RELIABLE_DATA} and {current_year + 2}")
         
         # ENHANCED: Dynamic deductible support
         deductible_rate = float(request_data.get('deductible_rate', self.default_deductible_rate))
@@ -232,18 +390,6 @@ class QuoteEngine:
             'custom_loadings': custom_loadings,  # ENHANCED: Custom loadings
             'buffer_radius': request_data.get('buffer_radius', 1500)
         }
-    
-    def _get_historical_years_aligned(self, target_year: int, quote_type: str) -> List[int]:
-        """ENHANCED: Generate properly aligned historical years"""
-        if quote_type == "historical":
-            # For historical quotes, analyze seasons that ended before target year
-            # If target year is 2024, analyze 2018-2023 seasons
-            return list(range(max(2018, target_year - 8), target_year))
-        else:
-            # For prospective quotes, use recent complete seasons
-            # For 2025 prospective, analyze 2018-2024 seasons
-            current_year = datetime.now().year
-            return list(range(max(2018, current_year - 8), current_year))
     
     def _detect_planting_dates_rainfall_only(self, latitude: float, longitude: float, 
                                            years: List[int]) -> Dict[int, Optional[str]]:
@@ -613,7 +759,7 @@ class QuoteEngine:
             
             # Metadata
             'generated_at': datetime.utcnow().isoformat(),
-            'methodology': 'rainfall_based_planting_enhanced_v2'
+            'methodology': 'actuarial_rainfall_based_v2.3'
         }
         
         return quote_result
