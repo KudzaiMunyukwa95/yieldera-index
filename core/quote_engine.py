@@ -349,7 +349,7 @@ class CalibratedQuoteEngine:
         self.drought_calculator = CalibratedDroughtCalculator()
         
         # CALIBRATED: Reduced loading factors for index insurance
-        self.base_loading_factor = 0.35        # REDUCED from 1.5 to 0.35 (industry standard for index insurance)
+        self.base_loading_factor = 1.00        # REDUCED from 1.5 to 1.00 (industry standard for index insurance)
         self.minimum_premium_rate = 0.015      # 1.5% minimum
         self.maximum_premium_rate = 0.20       # 20% maximum (removed cap issue)
         
