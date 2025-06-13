@@ -60,7 +60,7 @@ class CalibratedDroughtCalculator:
         }
 
     def _analyze_rolling_10day_windows(self, daily_rainfall: List[float], 
-                                     trigger_mm: float = 20.0) -> Dict[str, Any]:  # CALIBRATED: Default 20mm
+                                     trigger_mm: float = 15.0) -> Dict[str, Any]:  # CALIBRATED: Default 15mm
         """
         Analyze 10-day rolling windows for drought detection (Industry Standard) - CALIBRATED
         
@@ -393,7 +393,7 @@ class CalibratedQuoteEngine:
         print(f"⚡ PERFORMANCE: Server-side operations, no .getInfo() bottlenecks")
         print(f"📅 Data period: {self.EARLIEST_RELIABLE_DATA} onwards ({datetime.now().year - self.EARLIEST_RELIABLE_DATA + 1} years available)")
         print("🎯 CALIBRATED DROUGHT DETECTION:")
-        print("   • 10-day rolling windows (≤20mm threshold) - CALIBRATED")
+        print("   • 10-day rolling windows (≤15mm threshold) - CALIBRATED")
         print("   • Consecutive dry spell detection (≥10 days <1mm) - CALIBRATED")
         print("   • Risk scaling methodology for realistic rates")
         print("   • Phase-specific sensitivity levels - CALIBRATED")
@@ -573,7 +573,7 @@ class CalibratedQuoteEngine:
             quote_result['planting_analysis'] = {
                 'detection_method': 'optimized_rainfall_only',
                 'criteria': {
-                    'cumulative_7day_threshold': '≥20mm',
+                    'cumulative_7day_threshold': '≥15mm',
                     'daily_threshold': '≥5mm',
                     'minimum_qualifying_days': 2,
                     'season_window': 'October 1 - January 31'
@@ -1143,7 +1143,7 @@ class CalibratedQuoteEngine:
             'calibrated_drought_statistics': {
                 'average_rolling_drought_frequency': round(avg_rolling_drought_freq, 1),
                 'average_consecutive_dry_days': round(avg_consecutive_dry_days, 1),
-                'drought_methodology': '10-day rolling windows (≤20mm threshold) - CALIBRATED',
+                'drought_methodology': '10-day rolling windows (≤15mm threshold) - CALIBRATED',
                 'consecutive_drought_threshold': '≥10 consecutive days <1mm rainfall - CALIBRATED'
             },
             'acre_africa_compliance': f"Full compliance with industry standard methodology - CALIBRATED for realistic rates across {len(valid_years)} years",
@@ -1229,7 +1229,7 @@ class CalibratedQuoteEngine:
             "calibrated_drought_insights": {
                 "average_rolling_drought_frequency": round(avg_rolling_drought_freq, 1),
                 "average_consecutive_dry_days": round(avg_consecutive_dry_days, 1),
-                "drought_detection_method": "10-day rolling windows (≤20mm threshold) - CALIBRATED",
+                "drought_detection_method": "10-day rolling windows (≤15mm threshold) - CALIBRATED",
                 "consecutive_drought_threshold": "≥10 consecutive days <1mm rainfall - CALIBRATED",
                 "acre_africa_compatibility": "Full compliance with industry standards - CALIBRATED for realistic rates"
             },
