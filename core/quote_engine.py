@@ -1,7 +1,7 @@
 """
-Enhanced Actuarially Correct High-Performance Quote Engine V3.1
-FIXED: Year-Specific Pricing + Removed Rate Caps
+Enhanced Actuarially Correct High-Performance Quote Engine V3.0
 Industry Standard 10-Day Rolling Drought Detection - Acre Africa Compatible
+Fixed Earth Engine query limits and division by zero errors
 """
 
 import ee
@@ -332,10 +332,10 @@ class EnhancedDroughtCalculator:
 
 
 class QuoteEngine:
-    """Enhanced actuarially correct high-performance quote engine with year-specific pricing"""
+    """Enhanced actuarially correct high-performance quote engine with industry standard drought detection"""
     
     def __init__(self):
-        """Initialize with enhanced drought detection capabilities and year-specific pricing"""
+        """Initialize with enhanced drought detection capabilities"""
         # ACTUARIAL DATA REQUIREMENTS - Updated to industry standards
         self.ACTUARIAL_MINIMUM_YEARS = 20      # Industry standard for weather index insurance
         self.REGULATORY_MINIMUM_YEARS = 15     # Absolute minimum for regulatory approval
@@ -348,11 +348,7 @@ class QuoteEngine:
         # ACTUARIALLY CORRECT: Enhanced simulation parameters
         self.base_loading_factor = 1.5  # Base loading multiplier
         self.minimum_premium_rate = 0.015  # 1.5% minimum
-        
-        # FIXED: Remove artificial rate cap to see true risk-based pricing
-        # OLD: self.maximum_premium_rate = 0.25   # 25% maximum - REMOVED
-        # NEW: Allow natural premium rates based on actual risk assessment
-        self.maximum_premium_rate = None  # No artificial cap
+        self.maximum_premium_rate = 0.25   # 25% maximum
         
         # Dynamic deductible defaults (now configurable)
         self.default_deductible_rate = 0.05  # 5% default, now flexible
@@ -379,8 +375,7 @@ class QuoteEngine:
         # PERFORMANCE: Lazy-load Earth Engine objects (initialized after ee.Initialize())
         self._chirps_collection = None
         
-        print("🚀 ENHANCED ACTUARIALLY CORRECT High-Performance Quote Engine V3.1 initialized")
-        print("🔧 FIXED: Year-Specific Pricing + Removed Rate Caps")
+        print("🚀 ENHANCED ACTUARIALLY CORRECT High-Performance Quote Engine V3.0 initialized")
         print("🔧 INDUSTRY STANDARD: 10-Day Rolling Drought Detection - Acre Africa Compatible")
         print("📚 Using crops.py with 9 crop types and AEZ zones")
         print("🌱 Planting detection: Optimized rainfall-only (server-side)")
@@ -395,11 +390,7 @@ class QuoteEngine:
         print("   • Maximum stress methodology")
         print("   • Phase-specific sensitivity levels")
         print("   • Geographic risk multipliers")
-        print("🔧 MAJOR FIXES:")
-        print("   • ✅ Year-specific historical analysis periods")
-        print("   • ✅ Removed artificial 25% rate cap")
-        print("   • ✅ True risk-based pricing by quote year")
-        print("   • ✅ Climate-adjusted premium rates")
+        print("🔧 FIXED: Earth Engine chunking and error handling")
     
     def _get_chirps_collection(self):
         """Lazy-load CHIRPS collection after Earth Engine is initialized"""
@@ -414,16 +405,16 @@ class QuoteEngine:
     
     def execute_quote(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute quote with year-specific pricing and removed rate caps
+        Execute quote with enhanced industry standard drought detection
         
         Args:
             request_data: Quote request parameters
             
         Returns:
-            Enhanced quote with year-specific pricing
+            Enhanced quote with industry standard drought analysis
         """
         try:
-            print(f"\n🚀 Starting YEAR-SPECIFIC quote execution (V3.1)")
+            print(f"\n🚀 Starting ENHANCED INDUSTRY STANDARD quote execution")
             start_time = datetime.now()
             
             # Validate and extract parameters (with deductible and loadings support)
@@ -439,26 +430,25 @@ class QuoteEngine:
             print(f"🗓️ Target year: {params['year']}")
             print(f"💰 Deductible: {params['deductible_rate']*100:.1f}%")
             print(f"📊 Custom loadings: {len(params['custom_loadings'])} types")
-            print(f"🎯 YEAR-SPECIFIC pricing: Historical data tailored to quote year")
-            print(f"🔓 UNCAPPED rates: True risk-based pricing enabled")
+            print(f"🎯 Enhanced drought detection: 10-day rolling + consecutive dry")
             
-            # FIXED: Year-specific data availability validation
-            data_validation = self._validate_year_specific_data_availability(params['year'], quote_type)
+            # ACTUARIAL VALIDATION: Check data availability first
+            data_validation = self._validate_actuarial_data_availability(params['year'], quote_type)
             
             if not data_validation['meets_actuarial_standard']:
                 if data_validation['meets_regulatory_minimum']:
-                    print(f"⚠️ WARNING: Only {data_validation['years_available']} years available for {params['year']}")
+                    print(f"⚠️ WARNING: Only {data_validation['years_available']} years available")
                     print(f"📊 Below actuarial standard ({self.ACTUARIAL_MINIMUM_YEARS} years) but above regulatory minimum")
                 else:
                     raise ValueError(
-                        f"INSUFFICIENT DATA: Only {data_validation['years_available']} years available for {params['year']}. "
+                        f"INSUFFICIENT DATA: Only {data_validation['years_available']} years available. "
                         f"Minimum {self.REGULATORY_MINIMUM_YEARS} years required for basic analysis, "
                         f"{self.ACTUARIAL_MINIMUM_YEARS} years recommended for actuarial standards."
                     )
             
-            # FIXED: Generate year-specific historical years for analysis
-            historical_years = self._get_year_specific_actuarial_analysis(params['year'], quote_type)
-            print(f"📊 YEAR-SPECIFIC ANALYSIS: {len(historical_years)} years ({min(historical_years)}-{max(historical_years)}) for {params['year']} quote")
+            # Generate historical years for analysis (actuarial-grade)
+            historical_years = self._get_actuarial_years_analysis(params['year'], quote_type)
+            print(f"📊 ACTUARIAL ANALYSIS: {len(historical_years)} years ({min(historical_years)}-{max(historical_years)})")
             
             # OPTIMIZED: Detect planting dates using server-side batch processing
             planting_dates = self._detect_planting_dates_optimized(
@@ -480,13 +470,13 @@ class QuoteEngine:
                     f"Minimum 10 seasons required for statistical reliability."
                 )
             
-            # ENHANCED: Perform batch analysis with year-specific drought detection
-            year_by_year_analysis = self._perform_year_specific_batch_analysis(
+            # ENHANCED: Perform batch analysis with enhanced drought detection
+            year_by_year_analysis = self._perform_enhanced_batch_analysis(
                 params, valid_planting_dates
             )
             
-            # ENHANCED: Calculate quote metrics with year-specific industry standard drought analysis
-            quote_result = self._calculate_year_specific_quote_v31(
+            # ENHANCED: Calculate quote metrics with industry standard drought analysis
+            quote_result = self._calculate_enhanced_quote_v3(
                 params, year_by_year_analysis, valid_planting_dates
             )
             
@@ -498,15 +488,13 @@ class QuoteEngine:
                 'detection_success_rate': (len(valid_planting_dates) / len(historical_years)) * 100,
                 'meets_actuarial_standard': data_validation['meets_actuarial_standard'],
                 'data_period': f"{min(historical_years)}-{max(historical_years)}",
-                'climate_cycles_captured': self._assess_climate_cycles(historical_years),
-                'year_specific_analysis': True,
-                'rate_cap_removed': True
+                'climate_cycles_captured': self._assess_climate_cycles(historical_years)
             }
             
             # Add enhanced simulation results
             quote_result['year_by_year_simulation'] = year_by_year_analysis
             quote_result['enhanced_drought_analysis'] = {
-                'methodology': 'Year-Specific Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative',
+                'methodology': 'Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative',
                 'drought_detection_criteria': {
                     'rolling_window_days': self.drought_calculator.rolling_window_days,
                     'drought_trigger_threshold_mm': self.drought_calculator.drought_trigger_threshold,
@@ -515,9 +503,7 @@ class QuoteEngine:
                 },
                 'phase_sensitivity_levels': list(self.drought_calculator.drought_sensitivity_levels.keys()),
                 'geographic_multipliers': self.drought_calculator.geographic_multipliers,
-                'acre_africa_compatibility': 'Full compliance with industry standards',
-                'year_specific_pricing': True,
-                'rate_cap_status': 'Removed - True risk-based pricing enabled'
+                'acre_africa_compatibility': 'Full compliance with industry standards'
             }
             
             # Add planting analysis
@@ -531,132 +517,44 @@ class QuoteEngine:
                 },
                 'detection_summary': self._get_planting_windows_summary(planting_dates),
                 'valid_seasons': len(valid_planting_dates),
-                'total_years_analyzed': len(historical_years),
-                'year_specific_analysis': True
+                'total_years_analyzed': len(historical_years)
             }
             
             # Add enhanced field-level storytelling
-            quote_result['field_story'] = self._generate_year_specific_field_story(
+            quote_result['field_story'] = self._generate_enhanced_field_story(
                 year_by_year_analysis, params
             )
             
             execution_time = (datetime.now() - start_time).total_seconds()
             quote_result['execution_time_seconds'] = round(execution_time, 2)
-            quote_result['version'] = "3.1.0-YearSpecific-Uncapped"
+            quote_result['version'] = "3.0.0-IndustryStandard-Fixed"
             
-            print(f"✅ YEAR-SPECIFIC quote completed in {execution_time:.2f} seconds")
-            print(f"💰 Premium rate: {quote_result['premium_rate']*100:.2f}% (UNCAPPED)")
+            print(f"✅ ENHANCED INDUSTRY STANDARD quote completed in {execution_time:.2f} seconds")
+            print(f"💰 Premium rate: {quote_result['premium_rate']*100:.2f}%")
             print(f"💵 Gross premium: ${quote_result['gross_premium']:,.2f}")
             print(f"📈 Total loadings: ${quote_result['total_loadings']:,.2f}")
             print(f"📊 Data quality: {quote_result['data_quality_metrics']['detection_success_rate']:.1f}% valid seasons")
             print(f"⚡ Performance improvement: Server-side batch processing")
-            print(f"🎯 YEAR-SPECIFIC PRICING: Tailored historical analysis for {params['year']}")
-            print(f"🔓 TRUE RISK PRICING: No artificial rate caps applied")
+            print(f"🎯 ENHANCED DROUGHT DETECTION: 10-day rolling + consecutive dry spell analysis")
             print(f"🏢 ACRE AFRICA COMPATIBLE: Industry standard methodology implemented")
+            print(f"🔧 FIXES APPLIED: Earth Engine chunking + error handling")
             
             return quote_result
             
         except Exception as e:
-            print(f"❌ Year-specific quote execution error: {e}")
+            print(f"❌ Enhanced quote execution error: {e}")
             raise
     
-    def _validate_year_specific_data_availability(self, target_year: int, quote_type: str) -> Dict[str, Any]:
-        """FIXED: Validate data availability for specific quote year"""
-        current_year = datetime.now().year
-        
-        if quote_type == "historical":
-            # For historical quotes, use data UP TO that year (not including the quote year)
-            latest_analysis_year = target_year - 1
-            max_available_years = latest_analysis_year - self.EARLIEST_RELIABLE_DATA + 1
-        else:
-            # For prospective quotes, use all available historical data
-            latest_analysis_year = current_year - 1  
-            max_available_years = latest_analysis_year - self.EARLIEST_RELIABLE_DATA + 1
-        
-        years_we_can_analyze = min(self.OPTIMAL_YEARS_RANGE, max_available_years)
-        
-        validation_result = {
-            'years_available': years_we_can_analyze,
-            'meets_actuarial_standard': years_we_can_analyze >= self.ACTUARIAL_MINIMUM_YEARS,
-            'meets_regulatory_minimum': years_we_can_analyze >= self.REGULATORY_MINIMUM_YEARS,
-            'actuarial_standard_years': self.ACTUARIAL_MINIMUM_YEARS,
-            'regulatory_minimum_years': self.REGULATORY_MINIMUM_YEARS,
-            'optimal_years': self.OPTIMAL_YEARS_RANGE,
-            'data_quality_rating': self._get_data_quality_rating(years_we_can_analyze),
-            'analysis_period': f"{latest_analysis_year - years_we_can_analyze + 1} to {latest_analysis_year}",
-            'quote_type': quote_type,
-            'target_year': target_year,
-            'latest_analysis_year': latest_analysis_year,
-            'year_specific_analysis': True
-        }
-        
-        if not validation_result['meets_actuarial_standard']:
-            validation_result['recommendations'] = [
-                f"Wait until {self.EARLIEST_RELIABLE_DATA + self.ACTUARIAL_MINIMUM_YEARS} for full actuarial standard",
-                "Consider using regulatory minimum with appropriate risk adjustments",
-                "Add additional loading factors to account for data uncertainty",
-                "Implement more conservative payout thresholds"
-            ]
-        
-        return validation_result
-    
-    def _get_year_specific_actuarial_analysis(self, target_year: int, quote_type: str) -> List[int]:
-        """FIXED: Generate year-specific historical years for analysis"""
-        current_year = datetime.now().year
-        
-        if quote_type == "historical":
-            # For historical quotes, use data UP TO that year (not including the quote year)
-            latest_analysis_year = target_year - 1
-            max_available_years = latest_analysis_year - self.EARLIEST_RELIABLE_DATA + 1
-            print(f"📅 HISTORICAL QUOTE: Using data up to {latest_analysis_year} for {target_year} quote")
-        else:
-            # For prospective quotes, use all available historical data
-            latest_analysis_year = current_year - 1
-            max_available_years = latest_analysis_year - self.EARLIEST_RELIABLE_DATA + 1
-            print(f"📅 PROSPECTIVE QUOTE: Using all available data up to {latest_analysis_year} for {target_year} quote")
-        
-        # Determine how many years to use (aim for optimal, minimum actuarial standard)
-        years_to_use = min(self.OPTIMAL_YEARS_RANGE, max_available_years)
-        
-        # ENFORCE ACTUARIAL MINIMUM
-        if years_to_use < self.REGULATORY_MINIMUM_YEARS:
-            raise ValueError(
-                f"INSUFFICIENT DATA FOR {target_year}: Only {years_to_use} years available from {self.EARLIEST_RELIABLE_DATA}. "
-                f"Minimum {self.REGULATORY_MINIMUM_YEARS} years required for basic analysis, "
-                f"{self.ACTUARIAL_MINIMUM_YEARS} years recommended for actuarial standards."
-            )
-        
-        # Calculate start year
-        start_year = latest_analysis_year - years_to_use + 1
-        
-        # Generate the years list
-        historical_years = list(range(start_year, latest_analysis_year + 1))
-        
-        # Final validation
-        if len(historical_years) < self.REGULATORY_MINIMUM_YEARS:
-            raise ValueError(
-                f"CONFIGURATION ERROR: Generated {len(historical_years)} years for {target_year}, "
-                f"minimum {self.REGULATORY_MINIMUM_YEARS} required"
-            )
-        
-        # Log actuarial compliance
-        if len(historical_years) >= self.ACTUARIAL_MINIMUM_YEARS:
-            print(f"✅ ACTUARIAL COMPLIANCE: {len(historical_years)} years meets {self.ACTUARIAL_MINIMUM_YEARS}-year standard for {target_year}")
-        else:
-            print(f"⚠️ REGULATORY MINIMUM: {len(historical_years)} years (below {self.ACTUARIAL_MINIMUM_YEARS}-year actuarial standard) for {target_year}")
-        
-        return historical_years
-    
-    def _perform_year_specific_batch_analysis(self, params: Dict[str, Any], 
-                                            planting_dates: Dict[int, str]) -> List[Dict[str, Any]]:
-        """FIXED: Year-specific batch analysis with uncapped premium rates"""
+    def _perform_enhanced_batch_analysis(self, params: Dict[str, Any], 
+                                       planting_dates: Dict[int, str]) -> List[Dict[str, Any]]:
+        """Enhanced batch analysis with industry standard drought detection - FIXED"""
         year_results = []
         
-        print(f"\n📊 Starting YEAR-SPECIFIC batch analysis for {len(planting_dates)} seasons")
-        print(f"⚡ Method: Year-specific 10-day rolling drought detection with UNCAPPED rates")
+        print(f"\n📊 Starting ENHANCED INDUSTRY STANDARD batch analysis for {len(planting_dates)} seasons")
+        print(f"⚡ Method: Enhanced 10-day rolling drought detection with server-side processing")
         
-        # STEP 1: Calculate year-specific premium rate with enhanced drought analysis
-        print(f"🔍 STEP 1: Calculating year-specific premium rate for {params['year']}...")
+        # STEP 1: Calculate overall actuarial premium rate with enhanced drought analysis
+        print(f"🔍 STEP 1: Calculating enhanced actuarial premium rate...")
         
         # OPTIMIZATION: Batch process all years at once with daily rainfall data
         batch_daily_rainfall_data = self._calculate_batch_daily_rainfall_all_phases(
@@ -685,13 +583,13 @@ class QuoteEngine:
         if not total_enhanced_drought_impacts:
             print("⚠️ WARNING: No valid drought impacts calculated - using fallback methodology")
             # Fallback to basic premium rate calculation
-            year_specific_premium_rate = self.minimum_premium_rate * 2  # Conservative fallback
+            enhanced_premium_rate = self.minimum_premium_rate * 2  # Conservative fallback
             avg_enhanced_drought_impact = 0.0
             zone_multiplier = self._get_zone_risk_multiplier(params)
             rolling_window_penalty = 1.0
             consecutive_drought_penalty = 1.0
         else:
-            # Calculate year-specific premium rate
+            # Calculate enhanced actuarial premium rate
             avg_enhanced_drought_impact = sum(total_enhanced_drought_impacts) / len(total_enhanced_drought_impacts)
             overall_drought_risk = avg_enhanced_drought_impact / 100.0
             zone_multiplier = self._get_zone_risk_multiplier(params)
@@ -700,44 +598,41 @@ class QuoteEngine:
             rolling_window_penalty = 1.0 + (0.1 if avg_enhanced_drought_impact > 20 else 0)  # 10% penalty for high rolling window stress
             consecutive_drought_penalty = 1.0 + (0.05 if any(impact > 30 for impact in total_enhanced_drought_impacts) else 0)  # 5% penalty for severe consecutive drought
             
-            # FIXED: Calculate uncapped year-specific premium rate
-            year_specific_premium_rate = overall_drought_risk * self.base_loading_factor * zone_multiplier * rolling_window_penalty * consecutive_drought_penalty
-            
-            # FIXED: Apply only minimum rate constraint (NO MAXIMUM CAP)
-            year_specific_premium_rate = max(self.minimum_premium_rate, year_specific_premium_rate)
-            # OLD: min(year_specific_premium_rate, self.maximum_premium_rate) - REMOVED
+            enhanced_premium_rate = overall_drought_risk * self.base_loading_factor * zone_multiplier * rolling_window_penalty * consecutive_drought_penalty
+            enhanced_premium_rate = max(self.minimum_premium_rate, 
+                                       min(enhanced_premium_rate, self.maximum_premium_rate))
         
-        print(f"📊 YEAR-SPECIFIC CALCULATION FOR {params['year']}:")
+        print(f"📊 ENHANCED ACTUARIAL CALCULATION:")
         print(f"   Average enhanced drought impact: {avg_enhanced_drought_impact:.2f}%")
         print(f"   Zone multiplier: {zone_multiplier:.3f}")
         print(f"   Rolling window penalty: {rolling_window_penalty:.3f}")
         print(f"   Consecutive drought penalty: {consecutive_drought_penalty:.3f}")
-        print(f"   Year-specific premium rate: {year_specific_premium_rate*100:.2f}% (UNCAPPED)")
-        print(f"🎯 This UNCAPPED rate reflects true risk for {params['year']} based on historical patterns")
+        print(f"   Enhanced premium rate: {enhanced_premium_rate*100:.2f}%")
+        print(f"🎯 This ENHANCED rate incorporates industry standard drought methodology")
         
-        # STEP 3: Apply year-specific analysis to all years
+        # STEP 3: Apply enhanced analysis to all years
         for year, planting_date in planting_dates.items():
             try:
-                print(f"\n🔍 Processing {year} season with year-specific drought detection")
+                print(f"\n🔍 Processing {year} season with enhanced drought detection")
                 
                 # Get pre-computed daily rainfall data for this year
                 year_daily_rainfall_data = batch_daily_rainfall_data.get(year, {})
                 
-                # ENHANCED: Use year-specific drought detection
-                year_analysis = self._analyze_individual_year_year_specific(
-                    params, year, planting_date, year_daily_rainfall_data, year_specific_premium_rate
+                # ENHANCED: Use industry standard drought detection
+                year_analysis = self._analyze_individual_year_enhanced(
+                    params, year, planting_date, year_daily_rainfall_data, enhanced_premium_rate
                 )
                 year_results.append(year_analysis)
                 
                 enhanced_impact = year_analysis.get('enhanced_drought_analysis', {}).get('total_drought_impact_percent', 0)
-                print(f"📈 {year} YEAR-SPECIFIC results: {enhanced_impact:.1f}% drought impact, "
-                      f"{year_analysis['year_specific_premium_rate']*100:.2f}% rate (UNCAPPED), "
+                print(f"📈 {year} ENHANCED results: {enhanced_impact:.1f}% drought impact, "
+                      f"{year_analysis['enhanced_premium_rate']*100:.2f}% rate, "
                       f"${year_analysis['simulated_premium_usd']:,.0f} premium, "
                       f"${year_analysis['simulated_payout']:,.0f} payout, "
                       f"LR: {year_analysis['loss_ratio']:.2f}")
                 
             except Exception as e:
-                print(f"❌ Error in year-specific analysis for {year}: {e}")
+                print(f"❌ Error in enhanced analysis for {year}: {e}")
                 # Add error entry to maintain year tracking
                 year_results.append({
                     'year': year,
@@ -746,7 +641,7 @@ class QuoteEngine:
                     'harvest_year': year,
                     'error': str(e),
                     'enhanced_drought_analysis': {'total_drought_impact_percent': 0.0},
-                    'year_specific_premium_rate': year_specific_premium_rate,
+                    'enhanced_premium_rate': enhanced_premium_rate,
                     'simulated_premium_usd': 0.0,
                     'simulated_payout': 0.0,
                     'net_result': 0.0,
@@ -755,11 +650,11 @@ class QuoteEngine:
         
         return year_results
     
-    def _analyze_individual_year_year_specific(self, params: Dict[str, Any], year: int, 
-                                             planting_date: str, 
-                                             daily_rainfall_by_phase: Dict[str, List[float]],
-                                             year_specific_premium_rate: float) -> Dict[str, Any]:
-        """FIXED: Individual year analysis with year-specific rates"""
+    def _analyze_individual_year_enhanced(self, params: Dict[str, Any], year: int, 
+                                        planting_date: str, 
+                                        daily_rainfall_by_phase: Dict[str, List[float]],
+                                        enhanced_premium_rate: float) -> Dict[str, Any]:
+        """Enhanced individual year analysis with industry standard drought detection - FIXED"""
         
         # ERROR HANDLING: Check if we have valid rainfall data - FIXED
         if not daily_rainfall_by_phase or not any(daily_rainfall_by_phase.values()):
@@ -767,7 +662,7 @@ class QuoteEngine:
             
             # Return fallback analysis
             sum_insured = params['expected_yield'] * params['price_per_ton'] * params.get('area_ha', 1.0)
-            simulated_premium = sum_insured * year_specific_premium_rate
+            simulated_premium = sum_insured * enhanced_premium_rate
             
             return {
                 'year': year,
@@ -781,16 +676,16 @@ class QuoteEngine:
                 },
                 'drought_impact': 0.0,
                 'drought_impact_after_deductible': 0.0,
-                'year_specific_premium_rate': year_specific_premium_rate,
+                'enhanced_premium_rate': enhanced_premium_rate,
                 'simulated_premium_usd': simulated_premium,
                 'simulated_payout': 0.0,
                 'net_result': -simulated_premium,
                 'loss_ratio': 0.0,
                 'critical_periods': 0,
-                'methodology': 'Year-Specific Fallback Analysis - Data Unavailable'
+                'methodology': 'Fallback Analysis - Data Unavailable'
             }
         
-        # Continue with normal year-specific analysis...
+        # Continue with normal enhanced analysis...
         crop_phases = get_crop_phases(params['crop'])
         
         # Calculate season end date
@@ -798,7 +693,7 @@ class QuoteEngine:
         total_season_days = crop_phases[-1][1]  # end_day of last phase
         season_end = plant_date + timedelta(days=total_season_days)
         
-        # ENHANCED: Calculate drought impact using year-specific methodology
+        # ENHANCED: Calculate drought impact using industry standard methodology
         try:
             enhanced_drought_analysis = self.drought_calculator.calculate_enhanced_drought_impact(
                 crop_phases, daily_rainfall_by_phase, params['crop'], params.get('zone', 'auto_detect')
@@ -814,11 +709,11 @@ class QuoteEngine:
                 'error': str(e)
             }
         
-        # YEAR-SPECIFIC ACTUARIAL: Use the same premium rate for ALL years in the analysis
+        # ENHANCED ACTUARIAL: Use the same premium rate for ALL years
         sum_insured = params['expected_yield'] * params['price_per_ton'] * params.get('area_ha', 1.0)
         
-        # YEAR-SPECIFIC: Same premium every year (industry standard)
-        simulated_premium = sum_insured * year_specific_premium_rate
+        # ENHANCED: Same premium every year (industry standard)
+        simulated_premium = sum_insured * enhanced_premium_rate
         
         # ENHANCED: Payout varies by year based on enhanced drought impact
         # Apply deductible to the drought impact before calculating payout
@@ -850,505 +745,14 @@ class QuoteEngine:
             'enhanced_drought_analysis': enhanced_drought_analysis,
             'drought_impact': round(drought_impact, 2),  # Legacy compatibility
             'drought_impact_after_deductible': round(drought_impact_after_deductible, 2),
-            'year_specific_premium_rate': round(year_specific_premium_rate, 4),
+            'enhanced_premium_rate': round(enhanced_premium_rate, 4),
             'simulated_premium_usd': round(simulated_premium, 2),
             'simulated_payout': round(simulated_payout, 2),
             'net_result': round(net_result, 2),
             'loss_ratio': round(loss_ratio, 4),
             'critical_periods': critical_periods,
-            'methodology': 'Year-Specific Industry Standard 10-Day Rolling + Consecutive Dry'
+            'methodology': 'Enhanced Industry Standard 10-Day Rolling + Consecutive Dry'
         }
-    
-    def _calculate_year_specific_quote_v31(self, params: Dict[str, Any], 
-                                          year_analysis: List[Dict[str, Any]],
-                                          planting_dates: Dict[int, str]) -> Dict[str, Any]:
-        """FIXED: Calculate year-specific quote with uncapped rates"""
-        valid_years = [y for y in year_analysis if 'error' not in y]
-        
-        if not valid_years:
-            raise ValueError("No valid years for year-specific quote calculation")
-        
-        # YEAR-SPECIFIC: All years used the same year-specific premium rate
-        year_specific_premium_rate = valid_years[0]['year_specific_premium_rate']
-        
-        # Calculate enhanced metrics
-        enhanced_drought_impacts = [y['enhanced_drought_analysis']['total_drought_impact_percent'] for y in valid_years]
-        avg_enhanced_drought_impact = sum(enhanced_drought_impacts) / len(enhanced_drought_impacts) if enhanced_drought_impacts else 0.0
-        avg_payout = sum(y['simulated_payout'] for y in valid_years) / len(valid_years) if valid_years else 0.0
-        
-        # Get zone adjustments
-        zone_adjustments = self._get_zone_adjustments_from_crops(params)
-        
-        # Calculate financial metrics
-        sum_insured = params['expected_yield'] * params['price_per_ton'] * params.get('area_ha', 1.0)
-        
-        # YEAR-SPECIFIC: Use the year-specific rate from industry standard analysis
-        burning_cost = sum_insured * year_specific_premium_rate
-        
-        # Apply custom loadings or defaults
-        loadings_to_use = params['custom_loadings'] if params['custom_loadings'] else self.default_loadings
-        
-        loadings_breakdown = {}
-        total_loadings_amount = 0.0
-        
-        for loading_type, loading_rate in loadings_to_use.items():
-            loading_amount = burning_cost * loading_rate
-            loadings_breakdown[loading_type] = {
-                'rate': loading_rate,
-                'amount': loading_amount
-            }
-            total_loadings_amount += loading_amount
-        
-        gross_premium = burning_cost + total_loadings_amount
-        
-        # Apply dynamic deductible
-        deductible_amount = sum_insured * params['deductible_rate']
-        
-        # Generate enhanced phase breakdown
-        enhanced_phase_breakdown = self._generate_enhanced_phase_breakdown_v31(params['crop'], valid_years)
-        
-        # Calculate enhanced simulation summary
-        enhanced_simulation_summary = self._calculate_year_specific_simulation_summary(valid_years)
-        
-        # Create comprehensive year-specific quote result
-        quote_result = {
-            # Core quote data
-            'crop': params['crop'],
-            'year': params['year'],
-            'quote_type': params['quote_type'],
-            'latitude': params['latitude'],
-            'longitude': params['longitude'],
-            'area_ha': params.get('area_ha', 1.0),
-            
-            # YEAR-SPECIFIC: Financial summary with uncapped pricing
-            'expected_yield': params['expected_yield'],
-            'price_per_ton': params['price_per_ton'],
-            'sum_insured': sum_insured,
-            'premium_rate': year_specific_premium_rate,
-            'burning_cost': burning_cost,
-            'loadings_breakdown': loadings_breakdown,
-            'total_loadings': total_loadings_amount,
-            'gross_premium': gross_premium,
-            'deductible_rate': params['deductible_rate'],
-            'deductible_amount': deductible_amount,
-            
-            # Year-specific risk analysis
-            'year_specific_expected_payout_ratio': avg_enhanced_drought_impact / 100.0,
-            'historical_years_used': list(planting_dates.keys()),
-            'zone': params.get('zone', 'auto_detected'),
-            'zone_adjustments': zone_adjustments,
-            
-            # Enhanced metrics
-            'enhanced_phase_breakdown': enhanced_phase_breakdown,
-            'year_specific_simulation_summary': enhanced_simulation_summary,
-            
-            # Metadata
-            'generated_at': datetime.utcnow().isoformat(),
-            'methodology': 'year_specific_industry_standard_v3.1_uncapped',
-            'drought_detection_methodology': 'Year-Specific Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative',
-            'rate_cap_status': 'Removed - True risk-based pricing enabled',
-            'year_specific_pricing': True
-        }
-        
-        return quote_result
-    
-    def _generate_enhanced_phase_breakdown_v31(self, crop: str, 
-                                             valid_years: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Generate year-specific phase breakdown with industry standard analysis"""
-        crop_phases = get_crop_phases(crop)
-        enhanced_phases = []
-        
-        for i, (start_day, end_day, trigger_mm, exit_mm, phase_name, water_need_mm, obs_window) in enumerate(crop_phases):
-            # Collect enhanced analysis data across years for this phase
-            phase_analyses = []
-            for year_data in valid_years:
-                enhanced_analysis = year_data.get('enhanced_drought_analysis', {})
-                phase_analysis_list = enhanced_analysis.get('phase_analyses', [])
-                
-                # Find analysis for this phase
-                for phase_analysis in phase_analysis_list:
-                    if phase_analysis.get('phase_name') == phase_name:
-                        phase_analyses.append(phase_analysis)
-                        break
-            
-            if not phase_analyses:
-                continue
-            
-            # Calculate enhanced statistics
-            avg_rolling_drought_freq = sum(p['rolling_window_analysis']['drought_frequency'] for p in phase_analyses) / len(phase_analyses)
-            avg_consecutive_dry_days = sum(p['consecutive_dry_analysis']['max_consecutive_dry_days'] for p in phase_analyses) / len(phase_analyses)
-            avg_stress_factor = sum(p['maximum_stress_factor'] for p in phase_analyses) / len(phase_analyses)
-            
-            # Count phases with drought stress
-            phases_with_rolling_stress = len([p for p in phase_analyses if p['rolling_window_analysis']['drought_frequency'] > 20])
-            phases_with_consecutive_stress = len([p for p in phase_analyses if p['consecutive_dry_analysis']['drought_stress_triggered']])
-            
-            enhanced_phase = {
-                'phase_number': i + 1,
-                'phase_name': phase_name,
-                'start_day': start_day,
-                'end_day': end_day,
-                'duration_days': end_day - start_day + 1,
-                'water_need_mm': water_need_mm,
-                'sensitivity_level': phase_analyses[0].get('sensitivity_level', 'medium'),
-                'year_specific_drought_analysis': {
-                    'average_rolling_drought_frequency': round(avg_rolling_drought_freq, 1),
-                    'average_consecutive_dry_days': round(avg_consecutive_dry_days, 1),
-                    'average_stress_factor': round(avg_stress_factor, 3),
-                    'years_with_rolling_stress': phases_with_rolling_stress,
-                    'years_with_consecutive_stress': phases_with_consecutive_stress,
-                    'total_years_analyzed': len(phase_analyses)
-                },
-                'methodology': 'Year-Specific Industry Standard 10-Day Rolling + Consecutive Dry',
-                'acre_africa_compatibility': 'Full compliance',
-                'rate_cap_status': 'Uncapped analysis'
-            }
-            
-            enhanced_phases.append(enhanced_phase)
-        
-        return enhanced_phases
-    
-    def _calculate_year_specific_simulation_summary(self, valid_years: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Calculate year-specific simulation summary with uncapped metrics"""
-        if not valid_years:
-            return {}
-        
-        # Collect enhanced metrics
-        enhanced_drought_impacts = [y['enhanced_drought_analysis']['total_drought_impact_percent'] for y in valid_years]
-        total_premiums = [y['simulated_premium_usd'] for y in valid_years]
-        total_payouts = [y['simulated_payout'] for y in valid_years]
-        loss_ratios = [y['loss_ratio'] for y in valid_years]
-        
-        # The year-specific premium rate is consistent across all years
-        year_specific_premium_rate = valid_years[0]['year_specific_premium_rate']
-        
-        # Calculate enhanced payout frequency
-        meaningful_payouts = [y for y in valid_years if y['simulated_payout'] > (y['simulated_premium_usd'] * 0.01)]
-        enhanced_payout_frequency = (len(meaningful_payouts) / len(valid_years)) * 100
-        
-        # Find extreme years based on enhanced analysis
-        worst_year_data = max(valid_years, key=lambda x: x['enhanced_drought_analysis']['total_drought_impact_percent'])
-        best_year_data = min(valid_years, key=lambda x: x['enhanced_drought_analysis']['total_drought_impact_percent'])
-        
-        # Calculate enhanced drought statistics
-        rolling_window_stats = []
-        consecutive_dry_stats = []
-        
-        for year_data in valid_years:
-            enhanced_analysis = year_data['enhanced_drought_analysis']
-            for phase_analysis in enhanced_analysis.get('phase_analyses', []):
-                rolling_window_stats.append(phase_analysis['rolling_window_analysis']['drought_frequency'])
-                consecutive_dry_stats.append(phase_analysis['consecutive_dry_analysis']['max_consecutive_dry_days'])
-        
-        avg_rolling_drought_freq = sum(rolling_window_stats) / len(rolling_window_stats) if rolling_window_stats else 0
-        avg_consecutive_dry_days = sum(consecutive_dry_stats) / len(consecutive_dry_stats) if consecutive_dry_stats else 0
-        
-        return {
-            'years_analyzed': len(valid_years),
-            'year_specific_methodology': 'Year-Specific Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative',
-            'average_enhanced_drought_impact': round(sum(enhanced_drought_impacts) / len(enhanced_drought_impacts), 2),
-            'year_specific_premium_rate': round(year_specific_premium_rate, 4),
-            'rate_cap_status': 'Removed - Uncapped true risk pricing',
-            'average_payout': round(sum(total_payouts) / len(total_payouts), 2),
-            'average_loss_ratio': round(sum(loss_ratios) / len(loss_ratios), 4),
-            'enhanced_payout_frequency': round(enhanced_payout_frequency, 1),
-            'maximum_loss_year': worst_year_data['year'],
-            'maximum_enhanced_loss_impact': round(worst_year_data['enhanced_drought_analysis']['total_drought_impact_percent'], 2),
-            'minimum_loss_year': best_year_data['year'],
-            'minimum_enhanced_loss_impact': round(best_year_data['enhanced_drought_analysis']['total_drought_impact_percent'], 2),
-            'total_historical_premiums': round(sum(total_premiums), 2),
-            'total_historical_payouts': round(sum(total_payouts), 2),
-            'overall_historical_loss_ratio': round(sum(total_payouts) / sum(total_premiums), 4) if sum(total_premiums) > 0 else 0,
-            'year_specific_drought_statistics': {
-                'average_rolling_drought_frequency': round(avg_rolling_drought_freq, 1),
-                'average_consecutive_dry_days': round(avg_consecutive_dry_days, 1),
-                'drought_methodology': '10-day rolling windows (≤15mm threshold)',
-                'consecutive_drought_threshold': '≥10 consecutive days <1mm rainfall'
-            },
-            'acre_africa_compliance': f"Full compliance with year-specific methodology across {len(valid_years)} years"
-        }
-    
-    def _generate_year_specific_field_story(self, year_analysis: List[Dict[str, Any]], 
-                                          params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate year-specific field-level storytelling with uncapped insights"""
-        valid_years = [y for y in year_analysis if 'error' not in y]
-        
-        if not valid_years:
-            return {"summary": "Insufficient data for year-specific field story generation"}
-        
-        # YEAR-SPECIFIC: Calculate totals with uncapped analysis
-        total_premiums = sum(y['simulated_premium_usd'] for y in valid_years)
-        total_payouts = sum(y['simulated_payout'] for y in valid_years)
-        net_position = total_payouts - total_premiums
-        
-        # Find best and worst years based on enhanced analysis
-        best_year = min(valid_years, key=lambda x: x['enhanced_drought_analysis']['total_drought_impact_percent'])
-        worst_year = max(valid_years, key=lambda x: x['enhanced_drought_analysis']['total_drought_impact_percent'])
-        
-        # Calculate enhanced value metrics
-        years_with_payouts = len([y for y in valid_years if y['simulated_payout'] > (y['simulated_premium_usd'] * 0.01)])
-        enhanced_payout_frequency = years_with_payouts / len(valid_years) * 100
-        
-        # Get year-specific premium rate
-        year_specific_rate = valid_years[0]['year_specific_premium_rate']
-        
-        # Calculate enhanced drought statistics
-        avg_rolling_drought_freq = 0
-        avg_consecutive_dry_days = 0
-        total_analyses = 0
-        
-        for year_data in valid_years:
-            enhanced_analysis = year_data['enhanced_drought_analysis']
-            for phase_analysis in enhanced_analysis.get('phase_analyses', []):
-                avg_rolling_drought_freq += phase_analysis['rolling_window_analysis']['drought_frequency']
-                avg_consecutive_dry_days += phase_analysis['consecutive_dry_analysis']['max_consecutive_dry_days']
-                total_analyses += 1
-        
-        if total_analyses > 0:
-            avg_rolling_drought_freq /= total_analyses
-            avg_consecutive_dry_days /= total_analyses
-        
-        # Generate year-specific story with uncapped context
-        worst_enhanced_impact = worst_year['enhanced_drought_analysis']['total_drought_impact_percent']
-        risk_level = "low" if worst_enhanced_impact < 20 else "moderate" if worst_enhanced_impact < 50 else "high"
-        
-        summary = (f"Over the past {len(valid_years)} seasons at this {params['crop']} field, "
-                  f"using year-specific industry standard 10-day rolling drought detection methodology, "
-                  f"paying a consistent {year_specific_rate*100:.2f}% premium rate (UNCAPPED true risk pricing) would have totaled "
-                  f"${total_premiums:,.0f} with ${total_payouts:,.0f} in total payouts. ")
-        
-        if net_position > 0:
-            summary += f"The year-specific insurance analysis shows a net benefit of ${net_position:,.0f} over this period."
-        elif net_position < 0:
-            summary += f"The net cost of year-specific protection would have been ${abs(net_position):,.0f} over this period."
-        else:
-            summary += "The year-specific insurance analysis shows break-even performance over this period."
-        
-        summary += (f" The uncapped year-specific analysis reveals {risk_level} historical drought risk "
-                   f"with {enhanced_payout_frequency:.1f}% payout frequency, incorporating "
-                   f"10-day rolling window detection and consecutive dry spell analysis with no artificial rate caps.")
-        
-        return {
-            "summary": summary,
-            "year_specific_historical_performance": {
-                "total_seasons": len(valid_years),
-                "year_specific_premium_rate": round(year_specific_rate, 4),
-                "rate_cap_status": "Removed - True risk-based pricing",
-                "total_premiums_paid": round(total_premiums, 2),
-                "total_payouts_received": round(total_payouts, 2),
-                "net_farmer_position": round(net_position, 2),
-                "enhanced_payout_frequency_percent": round(enhanced_payout_frequency, 1),
-                "methodology": "Year-Specific Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative"
-            },
-            "year_specific_drought_insights": {
-                "average_rolling_drought_frequency": round(avg_rolling_drought_freq, 1),
-                "average_consecutive_dry_days": round(avg_consecutive_dry_days, 1),
-                "drought_detection_method": "10-day rolling windows (≤15mm threshold)",
-                "consecutive_drought_threshold": "≥10 consecutive days <1mm rainfall",
-                "acre_africa_compatibility": "Full compliance with year-specific industry standards",
-                "rate_cap_status": "Uncapped analysis for true risk assessment"
-            },
-            "best_year": {
-                "year": best_year['year'],
-                "enhanced_drought_impact": round(best_year['enhanced_drought_analysis']['total_drought_impact_percent'], 1),
-                "premium": round(best_year['simulated_premium_usd'], 2),
-                "payout": round(best_year['simulated_payout'], 2),
-                "description": f"Excellent growing conditions with only {best_year['enhanced_drought_analysis']['total_drought_impact_percent']:.1f}% enhanced drought impact"
-            },
-            "worst_year": {
-                "year": worst_year['year'],
-                "enhanced_drought_impact": round(worst_enhanced_impact, 1),
-                "premium": round(worst_year['simulated_premium_usd'], 2),
-                "payout": round(worst_year['simulated_payout'], 2),
-                "description": f"Severe drought year with {worst_enhanced_impact:.1f}% enhanced loss and ${worst_year['simulated_payout']:,.0f} payout"
-            },
-            "year_specific_value_for_money": {
-                "loss_ratio": round((total_payouts / total_premiums), 3) if total_premiums > 0 else 0,
-                "interpretation": (
-                    "Excellent value - high payout efficiency" if (total_payouts / total_premiums) > 0.7 else
-                    "Good value - balanced protection" if (total_payouts / total_premiums) > 0.4 else
-                    "Standard value - conservative claims experience"
-                ) if total_premiums > 0 else "Unable to calculate",
-                "year_specific_methodology_note": "Analysis incorporates year-specific 10-day rolling drought detection with uncapped rates",
-                "rate_cap_removed": True
-            }
-        }
-    
-    # Include all existing utility methods with backward compatibility
-    def _calculate_drought_impact_by_phases(self, crop_phases: List[Tuple], 
-                                          rainfall_by_phase: Dict[str, float],
-                                          crop: str) -> float:
-        """Legacy method - maintained for backward compatibility"""
-        phase_weights = get_crop_phase_weights(crop)
-        total_impact = 0.0
-        
-        for i, (start_day, end_day, trigger_mm, exit_mm, phase_name, water_need_mm, obs_window) in enumerate(crop_phases):
-            actual_rainfall = rainfall_by_phase.get(phase_name, 0)
-            
-            # Calculate phase-specific stress (legacy method)
-            if actual_rainfall >= water_need_mm:
-                phase_stress = 0.0
-            else:
-                phase_stress = (water_need_mm - actual_rainfall) / water_need_mm
-                phase_stress = min(phase_stress, 1.0)
-            
-            # Apply phase weight
-            weighted_impact = phase_stress * phase_weights[i] * 100
-            total_impact += weighted_impact
-            
-            print(f"📊 LEGACY {phase_name}: {actual_rainfall:.1f}mm/{water_need_mm}mm, "
-                  f"stress: {phase_stress*100:.1f}%, weighted: {weighted_impact:.1f}%")
-        
-        return min(total_impact, 100.0)
-    
-    # All other existing utility methods preserved for backward compatibility
-    def _validate_and_extract_params(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and extract parameters with enhanced deductible and loadings support"""
-        # Required fields
-        required_fields = ['expected_yield', 'price_per_ton']
-        for field in required_fields:
-            if field not in request_data:
-                raise ValueError(f"Missing required field: {field}")
-        
-        # Location validation
-        if 'geometry' in request_data:
-            geometry = request_data['geometry']
-            if geometry['type'] == 'Point':
-                longitude, latitude = geometry['coordinates']
-            else:
-                raise ValueError("Only Point geometry is supported")
-        elif 'latitude' in request_data and 'longitude' in request_data:
-            latitude = float(request_data['latitude'])
-            longitude = float(request_data['longitude'])
-        else:
-            raise ValueError("Must provide either 'geometry' or 'latitude'/'longitude'")
-        
-        # Coordinate validation for Southern Africa focus
-        if not (-25 <= latitude <= -15 and 25 <= longitude <= 35):
-            print(f"⚠️ Warning: Coordinates outside typical Southern Africa range")
-        
-        # Extract and validate crop using crops.py
-        crop = request_data.get('crop', 'maize').lower().strip()
-        validated_crop = validate_crop(crop)
-        
-        expected_yield = float(request_data['expected_yield'])
-        price_per_ton = float(request_data['price_per_ton'])
-        year = int(request_data.get('year', datetime.now().year))
-        
-        # Validate ranges
-        if expected_yield <= 0 or expected_yield > 20:
-            raise ValueError(f"Expected yield must be between 0 and 20 tons/ha")
-        
-        if price_per_ton <= 0 or price_per_ton > 5000:
-            raise ValueError(f"Price per ton must be between 0 and $5000")
-        
-        # Year validation for seasonal appropriateness
-        current_year = datetime.now().year
-        if year < self.EARLIEST_RELIABLE_DATA or year > current_year + 2:
-            raise ValueError(f"Year must be between {self.EARLIEST_RELIABLE_DATA} and {current_year + 2}")
-        
-        # ENHANCED: Dynamic deductible support
-        deductible_rate = float(request_data.get('deductible_rate', self.default_deductible_rate))
-        if deductible_rate < 0 or deductible_rate > 0.5:
-            raise ValueError(f"Deductible rate must be between 0% and 50%")
-        
-        # ENHANCED: Custom loadings support
-        custom_loadings = request_data.get('loadings', {})
-        if not isinstance(custom_loadings, dict):
-            raise ValueError("Loadings must be provided as a dictionary")
-        
-        # Validate loading values
-        for loading_type, loading_value in custom_loadings.items():
-            if not isinstance(loading_value, (int, float)):
-                raise ValueError(f"Loading '{loading_type}' must be a number")
-            if loading_value < 0 or loading_value > 1.0:
-                raise ValueError(f"Loading '{loading_type}' must be between 0% and 100%")
-        
-        return {
-            'latitude': latitude,
-            'longitude': longitude,
-            'crop': validated_crop,
-            'expected_yield': expected_yield,
-            'price_per_ton': price_per_ton,
-            'year': year,
-            'area_ha': request_data.get('area_ha', 1.0),
-            'zone': request_data.get('zone', 'auto_detect'),
-            'deductible_rate': deductible_rate,
-            'custom_loadings': custom_loadings,
-            'buffer_radius': request_data.get('buffer_radius', 1500)
-        }
-    
-    def _get_data_quality_rating(self, years_available: int) -> str:
-        """Rate data quality based on years available"""
-        if years_available >= self.OPTIMAL_YEARS_RANGE:
-            return "Excellent"
-        elif years_available >= self.ACTUARIAL_MINIMUM_YEARS:
-            return "Good - Meets Actuarial Standard"
-        elif years_available >= self.REGULATORY_MINIMUM_YEARS:
-            return "Acceptable - Meets Regulatory Minimum"
-        elif years_available >= 10:
-            return "Poor - Below Standards"
-        else:
-            return "Insufficient - Cannot Proceed"
-    
-    def _assess_climate_cycles(self, historical_years: List[int]) -> Dict[str, Any]:
-        """Assess climate cycle coverage in the analysis period"""
-        years_span = max(historical_years) - min(historical_years) + 1
-        
-        # Typical climate cycles
-        enso_cycles = years_span / 3.5  # El Niño/La Niña cycle ~3-7 years
-        decadal_cycles = years_span / 10  # Decadal climate patterns
-        
-        return {
-            'analysis_span_years': years_span,
-            'estimated_enso_cycles': round(enso_cycles, 1),
-            'estimated_decadal_cycles': round(decadal_cycles, 1),
-            'cycle_coverage_rating': (
-                "Excellent" if enso_cycles >= 5 else
-                "Good" if enso_cycles >= 3 else
-                "Fair" if enso_cycles >= 2 else
-                "Limited"
-            )
-        }
-    
-    def _get_zone_adjustments_from_crops(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Get zone adjustments using your crops.py zone system"""
-        zone = params.get('zone', 'auto_detect')
-        
-        if zone == 'auto_detect':
-            zone = self._auto_detect_zone(params['latitude'], params['longitude'])
-        
-        # Use your zone configuration from crops.py
-        zone_config = get_zone_config(zone)
-        
-        # Convert to expected format with enhanced risk multiplier
-        risk_multiplier = self.drought_calculator.geographic_multipliers.get(zone, 1.0)
-        
-        return {
-            'zone_name': zone_config['name'],
-            'risk_multiplier': risk_multiplier,
-            'description': zone_config['description'],
-            'primary_risk': zone_config['primary_risk'],
-            'annual_rainfall_range': zone_config['annual_rainfall_range'],
-            'year_specific_drought_methodology': 'Year-Specific Industry Standard 10-Day Rolling + Consecutive Dry'
-        }
-    
-    def _auto_detect_zone(self, latitude: float, longitude: float) -> str:
-        """Auto-detect agro-ecological zone based on coordinates with enhanced logic"""
-        # Enhanced zone detection for Zimbabwe/Southern Africa
-        if latitude > -17.0:
-            return 'aez_3_midlands'  # Northern areas - better rainfall
-        elif latitude > -19.0:
-            return 'aez_4_masvingo'  # Central areas - moderate risk
-        else:
-            return 'aez_5_lowveld'   # Southern areas - high drought risk
-    
-    def _get_zone_risk_multiplier(self, params: Dict[str, Any]) -> float:
-        """Get enhanced zone-specific risk multiplier"""
-        zone = params.get('zone', 'auto_detect')
-        if zone == 'auto_detect':
-            zone = self._auto_detect_zone(params['latitude'], params['longitude'])
-        return self.drought_calculator.geographic_multipliers.get(zone, 1.0)
     
     def _calculate_batch_daily_rainfall_all_phases(self, latitude: float, longitude: float,
                                                  planting_dates: Dict[int, str], 
@@ -1486,6 +890,569 @@ class QuoteEngine:
             enhanced_results[year] = year_daily_data
         
         return enhanced_results
+    
+    def _calculate_enhanced_quote_v3(self, params: Dict[str, Any], 
+                                   year_analysis: List[Dict[str, Any]],
+                                   planting_dates: Dict[int, str]) -> Dict[str, Any]:
+        """Calculate enhanced quote using industry standard drought methodology"""
+        valid_years = [y for y in year_analysis if 'error' not in y]
+        
+        if not valid_years:
+            raise ValueError("No valid years for enhanced quote calculation")
+        
+        # ENHANCED: All years used the same enhanced premium rate
+        enhanced_premium_rate = valid_years[0]['enhanced_premium_rate']
+        
+        # Calculate enhanced metrics
+        enhanced_drought_impacts = [y['enhanced_drought_analysis']['total_drought_impact_percent'] for y in valid_years]
+        avg_enhanced_drought_impact = sum(enhanced_drought_impacts) / len(enhanced_drought_impacts) if enhanced_drought_impacts else 0.0
+        avg_payout = sum(y['simulated_payout'] for y in valid_years) / len(valid_years) if valid_years else 0.0
+        
+        # Get zone adjustments
+        zone_adjustments = self._get_zone_adjustments_from_crops(params)
+        
+        # Calculate financial metrics
+        sum_insured = params['expected_yield'] * params['price_per_ton'] * params.get('area_ha', 1.0)
+        
+        # ENHANCED: Use the enhanced rate from industry standard analysis
+        burning_cost = sum_insured * enhanced_premium_rate
+        
+        # Apply custom loadings or defaults
+        loadings_to_use = params['custom_loadings'] if params['custom_loadings'] else self.default_loadings
+        
+        loadings_breakdown = {}
+        total_loadings_amount = 0.0
+        
+        for loading_type, loading_rate in loadings_to_use.items():
+            loading_amount = burning_cost * loading_rate
+            loadings_breakdown[loading_type] = {
+                'rate': loading_rate,
+                'amount': loading_amount
+            }
+            total_loadings_amount += loading_amount
+        
+        gross_premium = burning_cost + total_loadings_amount
+        
+        # Apply dynamic deductible
+        deductible_amount = sum_insured * params['deductible_rate']
+        
+        # Generate enhanced phase breakdown
+        enhanced_phase_breakdown = self._generate_enhanced_phase_breakdown_v3(params['crop'], valid_years)
+        
+        # Calculate enhanced simulation summary
+        enhanced_simulation_summary = self._calculate_enhanced_simulation_summary(valid_years)
+        
+        # Create comprehensive enhanced quote result
+        quote_result = {
+            # Core quote data
+            'crop': params['crop'],
+            'year': params['year'],
+            'quote_type': params['quote_type'],
+            'latitude': params['latitude'],
+            'longitude': params['longitude'],
+            'area_ha': params.get('area_ha', 1.0),
+            
+            # ENHANCED: Financial summary with industry standard pricing
+            'expected_yield': params['expected_yield'],
+            'price_per_ton': params['price_per_ton'],
+            'sum_insured': sum_insured,
+            'premium_rate': enhanced_premium_rate,
+            'burning_cost': burning_cost,
+            'loadings_breakdown': loadings_breakdown,
+            'total_loadings': total_loadings_amount,
+            'gross_premium': gross_premium,
+            'deductible_rate': params['deductible_rate'],
+            'deductible_amount': deductible_amount,
+            
+            # Enhanced risk analysis
+            'enhanced_expected_payout_ratio': avg_enhanced_drought_impact / 100.0,
+            'historical_years_used': list(planting_dates.keys()),
+            'zone': params.get('zone', 'auto_detected'),
+            'zone_adjustments': zone_adjustments,
+            
+            # Enhanced metrics
+            'enhanced_phase_breakdown': enhanced_phase_breakdown,
+            'enhanced_simulation_summary': enhanced_simulation_summary,
+            
+            # Metadata
+            'generated_at': datetime.utcnow().isoformat(),
+            'methodology': 'enhanced_industry_standard_v3.0_fixed',
+            'drought_detection_methodology': 'Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative'
+        }
+        
+        return quote_result
+    
+    def _generate_enhanced_phase_breakdown_v3(self, crop: str, 
+                                            valid_years: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Generate enhanced phase breakdown with industry standard analysis"""
+        crop_phases = get_crop_phases(crop)
+        enhanced_phases = []
+        
+        for i, (start_day, end_day, trigger_mm, exit_mm, phase_name, water_need_mm, obs_window) in enumerate(crop_phases):
+            # Collect enhanced analysis data across years for this phase
+            phase_analyses = []
+            for year_data in valid_years:
+                enhanced_analysis = year_data.get('enhanced_drought_analysis', {})
+                phase_analysis_list = enhanced_analysis.get('phase_analyses', [])
+                
+                # Find analysis for this phase
+                for phase_analysis in phase_analysis_list:
+                    if phase_analysis.get('phase_name') == phase_name:
+                        phase_analyses.append(phase_analysis)
+                        break
+            
+            if not phase_analyses:
+                continue
+            
+            # Calculate enhanced statistics
+            avg_rolling_drought_freq = sum(p['rolling_window_analysis']['drought_frequency'] for p in phase_analyses) / len(phase_analyses)
+            avg_consecutive_dry_days = sum(p['consecutive_dry_analysis']['max_consecutive_dry_days'] for p in phase_analyses) / len(phase_analyses)
+            avg_stress_factor = sum(p['maximum_stress_factor'] for p in phase_analyses) / len(phase_analyses)
+            
+            # Count phases with drought stress
+            phases_with_rolling_stress = len([p for p in phase_analyses if p['rolling_window_analysis']['drought_frequency'] > 20])
+            phases_with_consecutive_stress = len([p for p in phase_analyses if p['consecutive_dry_analysis']['drought_stress_triggered']])
+            
+            enhanced_phase = {
+                'phase_number': i + 1,
+                'phase_name': phase_name,
+                'start_day': start_day,
+                'end_day': end_day,
+                'duration_days': end_day - start_day + 1,
+                'water_need_mm': water_need_mm,
+                'sensitivity_level': phase_analyses[0].get('sensitivity_level', 'medium'),
+                'enhanced_drought_analysis': {
+                    'average_rolling_drought_frequency': round(avg_rolling_drought_freq, 1),
+                    'average_consecutive_dry_days': round(avg_consecutive_dry_days, 1),
+                    'average_stress_factor': round(avg_stress_factor, 3),
+                    'years_with_rolling_stress': phases_with_rolling_stress,
+                    'years_with_consecutive_stress': phases_with_consecutive_stress,
+                    'total_years_analyzed': len(phase_analyses)
+                },
+                'methodology': 'Industry Standard 10-Day Rolling + Consecutive Dry',
+                'acre_africa_compatibility': 'Full compliance'
+            }
+            
+            enhanced_phases.append(enhanced_phase)
+        
+        return enhanced_phases
+    
+    def _calculate_enhanced_simulation_summary(self, valid_years: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Calculate enhanced simulation summary with industry standard metrics"""
+        if not valid_years:
+            return {}
+        
+        # Collect enhanced metrics
+        enhanced_drought_impacts = [y['enhanced_drought_analysis']['total_drought_impact_percent'] for y in valid_years]
+        total_premiums = [y['simulated_premium_usd'] for y in valid_years]
+        total_payouts = [y['simulated_payout'] for y in valid_years]
+        loss_ratios = [y['loss_ratio'] for y in valid_years]
+        
+        # The enhanced premium rate is consistent across all years
+        enhanced_premium_rate = valid_years[0]['enhanced_premium_rate']
+        
+        # Calculate enhanced payout frequency
+        meaningful_payouts = [y for y in valid_years if y['simulated_payout'] > (y['simulated_premium_usd'] * 0.01)]
+        enhanced_payout_frequency = (len(meaningful_payouts) / len(valid_years)) * 100
+        
+        # Find extreme years based on enhanced analysis
+        worst_year_data = max(valid_years, key=lambda x: x['enhanced_drought_analysis']['total_drought_impact_percent'])
+        best_year_data = min(valid_years, key=lambda x: x['enhanced_drought_analysis']['total_drought_impact_percent'])
+        
+        # Calculate enhanced drought statistics
+        rolling_window_stats = []
+        consecutive_dry_stats = []
+        
+        for year_data in valid_years:
+            enhanced_analysis = year_data['enhanced_drought_analysis']
+            for phase_analysis in enhanced_analysis.get('phase_analyses', []):
+                rolling_window_stats.append(phase_analysis['rolling_window_analysis']['drought_frequency'])
+                consecutive_dry_stats.append(phase_analysis['consecutive_dry_analysis']['max_consecutive_dry_days'])
+        
+        avg_rolling_drought_freq = sum(rolling_window_stats) / len(rolling_window_stats) if rolling_window_stats else 0
+        avg_consecutive_dry_days = sum(consecutive_dry_stats) / len(consecutive_dry_stats) if consecutive_dry_stats else 0
+        
+        return {
+            'years_analyzed': len(valid_years),
+            'enhanced_methodology': 'Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative',
+            'average_enhanced_drought_impact': round(sum(enhanced_drought_impacts) / len(enhanced_drought_impacts), 2),
+            'enhanced_premium_rate': round(enhanced_premium_rate, 4),
+            'average_payout': round(sum(total_payouts) / len(total_payouts), 2),
+            'average_loss_ratio': round(sum(loss_ratios) / len(loss_ratios), 4),
+            'enhanced_payout_frequency': round(enhanced_payout_frequency, 1),
+            'maximum_loss_year': worst_year_data['year'],
+            'maximum_enhanced_loss_impact': round(worst_year_data['enhanced_drought_analysis']['total_drought_impact_percent'], 2),
+            'minimum_loss_year': best_year_data['year'],
+            'minimum_enhanced_loss_impact': round(best_year_data['enhanced_drought_analysis']['total_drought_impact_percent'], 2),
+            'total_historical_premiums': round(sum(total_premiums), 2),
+            'total_historical_payouts': round(sum(total_payouts), 2),
+            'overall_historical_loss_ratio': round(sum(total_payouts) / sum(total_premiums), 4) if sum(total_premiums) > 0 else 0,
+            'enhanced_drought_statistics': {
+                'average_rolling_drought_frequency': round(avg_rolling_drought_freq, 1),
+                'average_consecutive_dry_days': round(avg_consecutive_dry_days, 1),
+                'drought_methodology': '10-day rolling windows (≤15mm threshold)',
+                'consecutive_drought_threshold': '≥10 consecutive days <1mm rainfall'
+            },
+            'acre_africa_compliance': f"Full compliance with industry standard methodology across {len(valid_years)} years"
+        }
+    
+    def _generate_enhanced_field_story(self, year_analysis: List[Dict[str, Any]], 
+                                     params: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate enhanced field-level storytelling with industry standard insights"""
+        valid_years = [y for y in year_analysis if 'error' not in y]
+        
+        if not valid_years:
+            return {"summary": "Insufficient data for enhanced field story generation"}
+        
+        # ENHANCED: Calculate totals with industry standard analysis
+        total_premiums = sum(y['simulated_premium_usd'] for y in valid_years)
+        total_payouts = sum(y['simulated_payout'] for y in valid_years)
+        net_position = total_payouts - total_premiums
+        
+        # Find best and worst years based on enhanced analysis
+        best_year = min(valid_years, key=lambda x: x['enhanced_drought_analysis']['total_drought_impact_percent'])
+        worst_year = max(valid_years, key=lambda x: x['enhanced_drought_analysis']['total_drought_impact_percent'])
+        
+        # Calculate enhanced value metrics
+        years_with_payouts = len([y for y in valid_years if y['simulated_payout'] > (y['simulated_premium_usd'] * 0.01)])
+        enhanced_payout_frequency = years_with_payouts / len(valid_years) * 100
+        
+        # Get enhanced premium rate
+        enhanced_rate = valid_years[0]['enhanced_premium_rate']
+        
+        # Calculate enhanced drought statistics
+        avg_rolling_drought_freq = 0
+        avg_consecutive_dry_days = 0
+        total_analyses = 0
+        
+        for year_data in valid_years:
+            enhanced_analysis = year_data['enhanced_drought_analysis']
+            for phase_analysis in enhanced_analysis.get('phase_analyses', []):
+                avg_rolling_drought_freq += phase_analysis['rolling_window_analysis']['drought_frequency']
+                avg_consecutive_dry_days += phase_analysis['consecutive_dry_analysis']['max_consecutive_dry_days']
+                total_analyses += 1
+        
+        if total_analyses > 0:
+            avg_rolling_drought_freq /= total_analyses
+            avg_consecutive_dry_days /= total_analyses
+        
+        # Generate enhanced story with industry standard context
+        worst_enhanced_impact = worst_year['enhanced_drought_analysis']['total_drought_impact_percent']
+        risk_level = "low" if worst_enhanced_impact < 20 else "moderate" if worst_enhanced_impact < 50 else "high"
+        
+        summary = (f"Over the past {len(valid_years)} seasons at this {params['crop']} field, "
+                  f"using industry standard 10-day rolling drought detection methodology, "
+                  f"paying a consistent {enhanced_rate*100:.2f}% premium rate would have totaled "
+                  f"${total_premiums:,.0f} with ${total_payouts:,.0f} in total payouts. ")
+        
+        if net_position > 0:
+            summary += f"The enhanced insurance analysis shows a net benefit of ${net_position:,.0f} over this period."
+        elif net_position < 0:
+            summary += f"The net cost of enhanced protection would have been ${abs(net_position):,.0f} over this period."
+        else:
+            summary += "The enhanced insurance analysis shows break-even performance over this period."
+        
+        summary += (f" The industry standard analysis reveals {risk_level} historical drought risk "
+                   f"with {enhanced_payout_frequency:.1f}% payout frequency, incorporating "
+                   f"10-day rolling window detection and consecutive dry spell analysis.")
+        
+        return {
+            "summary": summary,
+            "enhanced_historical_performance": {
+                "total_seasons": len(valid_years),
+                "enhanced_premium_rate": round(enhanced_rate, 4),
+                "total_premiums_paid": round(total_premiums, 2),
+                "total_payouts_received": round(total_payouts, 2),
+                "net_farmer_position": round(net_position, 2),
+                "enhanced_payout_frequency_percent": round(enhanced_payout_frequency, 1),
+                "methodology": "Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative"
+            },
+            "enhanced_drought_insights": {
+                "average_rolling_drought_frequency": round(avg_rolling_drought_freq, 1),
+                "average_consecutive_dry_days": round(avg_consecutive_dry_days, 1),
+                "drought_detection_method": "10-day rolling windows (≤15mm threshold)",
+                "consecutive_drought_threshold": "≥10 consecutive days <1mm rainfall",
+                "acre_africa_compatibility": "Full compliance with industry standards"
+            },
+            "best_year": {
+                "year": best_year['year'],
+                "enhanced_drought_impact": round(best_year['enhanced_drought_analysis']['total_drought_impact_percent'], 1),
+                "premium": round(best_year['simulated_premium_usd'], 2),
+                "payout": round(best_year['simulated_payout'], 2),
+                "description": f"Excellent growing conditions with only {best_year['enhanced_drought_analysis']['total_drought_impact_percent']:.1f}% enhanced drought impact"
+            },
+            "worst_year": {
+                "year": worst_year['year'],
+                "enhanced_drought_impact": round(worst_enhanced_impact, 1),
+                "premium": round(worst_year['simulated_premium_usd'], 2),
+                "payout": round(worst_year['simulated_payout'], 2),
+                "description": f"Severe drought year with {worst_enhanced_impact:.1f}% enhanced loss and ${worst_year['simulated_payout']:,.0f} payout"
+            },
+            "enhanced_value_for_money": {
+                "loss_ratio": round((total_payouts / total_premiums), 3) if total_premiums > 0 else 0,
+                "interpretation": (
+                    "Excellent value - high payout efficiency" if (total_payouts / total_premiums) > 0.7 else
+                    "Good value - balanced protection" if (total_payouts / total_premiums) > 0.4 else
+                    "Standard value - conservative claims experience"
+                ) if total_premiums > 0 else "Unable to calculate",
+                "enhanced_methodology_note": "Analysis incorporates industry standard 10-day rolling drought detection"
+            }
+        }
+    
+    # Include all existing utility methods with backward compatibility
+    def _calculate_drought_impact_by_phases(self, crop_phases: List[Tuple], 
+                                          rainfall_by_phase: Dict[str, float],
+                                          crop: str) -> float:
+        """Legacy method - maintained for backward compatibility"""
+        phase_weights = get_crop_phase_weights(crop)
+        total_impact = 0.0
+        
+        for i, (start_day, end_day, trigger_mm, exit_mm, phase_name, water_need_mm, obs_window) in enumerate(crop_phases):
+            actual_rainfall = rainfall_by_phase.get(phase_name, 0)
+            
+            # Calculate phase-specific stress (legacy method)
+            if actual_rainfall >= water_need_mm:
+                phase_stress = 0.0
+            else:
+                phase_stress = (water_need_mm - actual_rainfall) / water_need_mm
+                phase_stress = min(phase_stress, 1.0)
+            
+            # Apply phase weight
+            weighted_impact = phase_stress * phase_weights[i] * 100
+            total_impact += weighted_impact
+            
+            print(f"📊 LEGACY {phase_name}: {actual_rainfall:.1f}mm/{water_need_mm}mm, "
+                  f"stress: {phase_stress*100:.1f}%, weighted: {weighted_impact:.1f}%")
+        
+        return min(total_impact, 100.0)
+    
+    # All other existing utility methods preserved for backward compatibility
+    def _validate_and_extract_params(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and extract parameters with enhanced deductible and loadings support"""
+        # Required fields
+        required_fields = ['expected_yield', 'price_per_ton']
+        for field in required_fields:
+            if field not in request_data:
+                raise ValueError(f"Missing required field: {field}")
+        
+        # Location validation
+        if 'geometry' in request_data:
+            geometry = request_data['geometry']
+            if geometry['type'] == 'Point':
+                longitude, latitude = geometry['coordinates']
+            else:
+                raise ValueError("Only Point geometry is supported")
+        elif 'latitude' in request_data and 'longitude' in request_data:
+            latitude = float(request_data['latitude'])
+            longitude = float(request_data['longitude'])
+        else:
+            raise ValueError("Must provide either 'geometry' or 'latitude'/'longitude'")
+        
+        # Coordinate validation for Southern Africa focus
+        if not (-25 <= latitude <= -15 and 25 <= longitude <= 35):
+            print(f"⚠️ Warning: Coordinates outside typical Southern Africa range")
+        
+        # Extract and validate crop using crops.py
+        crop = request_data.get('crop', 'maize').lower().strip()
+        validated_crop = validate_crop(crop)
+        
+        expected_yield = float(request_data['expected_yield'])
+        price_per_ton = float(request_data['price_per_ton'])
+        year = int(request_data.get('year', datetime.now().year))
+        
+        # Validate ranges
+        if expected_yield <= 0 or expected_yield > 20:
+            raise ValueError(f"Expected yield must be between 0 and 20 tons/ha")
+        
+        if price_per_ton <= 0 or price_per_ton > 5000:
+            raise ValueError(f"Price per ton must be between 0 and $5000")
+        
+        # Year validation for seasonal appropriateness
+        current_year = datetime.now().year
+        if year < self.EARLIEST_RELIABLE_DATA or year > current_year + 2:
+            raise ValueError(f"Year must be between {self.EARLIEST_RELIABLE_DATA} and {current_year + 2}")
+        
+        # ENHANCED: Dynamic deductible support
+        deductible_rate = float(request_data.get('deductible_rate', self.default_deductible_rate))
+        if deductible_rate < 0 or deductible_rate > 0.5:
+            raise ValueError(f"Deductible rate must be between 0% and 50%")
+        
+        # ENHANCED: Custom loadings support
+        custom_loadings = request_data.get('loadings', {})
+        if not isinstance(custom_loadings, dict):
+            raise ValueError("Loadings must be provided as a dictionary")
+        
+        # Validate loading values
+        for loading_type, loading_value in custom_loadings.items():
+            if not isinstance(loading_value, (int, float)):
+                raise ValueError(f"Loading '{loading_type}' must be a number")
+            if loading_value < 0 or loading_value > 1.0:
+                raise ValueError(f"Loading '{loading_type}' must be between 0% and 100%")
+        
+        return {
+            'latitude': latitude,
+            'longitude': longitude,
+            'crop': validated_crop,
+            'expected_yield': expected_yield,
+            'price_per_ton': price_per_ton,
+            'year': year,
+            'area_ha': request_data.get('area_ha', 1.0),
+            'zone': request_data.get('zone', 'auto_detect'),
+            'deductible_rate': deductible_rate,
+            'custom_loadings': custom_loadings,
+            'buffer_radius': request_data.get('buffer_radius', 1500)
+        }
+    
+    def _validate_actuarial_data_availability(self, target_year: int, quote_type: str) -> Dict[str, Any]:
+        """Validate data availability against actuarial standards"""
+        current_year = datetime.now().year
+        
+        if quote_type == "historical":
+            max_available_years = target_year - self.EARLIEST_RELIABLE_DATA
+            latest_analysis_year = target_year - 1
+        else:
+            max_available_years = current_year - self.EARLIEST_RELIABLE_DATA
+            latest_analysis_year = current_year - 1
+        
+        years_we_can_analyze = min(self.OPTIMAL_YEARS_RANGE, max_available_years)
+        
+        validation_result = {
+            'years_available': years_we_can_analyze,
+            'meets_actuarial_standard': years_we_can_analyze >= self.ACTUARIAL_MINIMUM_YEARS,
+            'meets_regulatory_minimum': years_we_can_analyze >= self.REGULATORY_MINIMUM_YEARS,
+            'actuarial_standard_years': self.ACTUARIAL_MINIMUM_YEARS,
+            'regulatory_minimum_years': self.REGULATORY_MINIMUM_YEARS,
+            'optimal_years': self.OPTIMAL_YEARS_RANGE,
+            'data_quality_rating': self._get_data_quality_rating(years_we_can_analyze),
+            'analysis_period': f"{latest_analysis_year - years_we_can_analyze + 1} to {latest_analysis_year}",
+            'quote_type': quote_type,
+            'target_year': target_year
+        }
+        
+        if not validation_result['meets_actuarial_standard']:
+            validation_result['recommendations'] = [
+                f"Wait until {self.EARLIEST_RELIABLE_DATA + self.ACTUARIAL_MINIMUM_YEARS} for full actuarial standard",
+                "Consider using regulatory minimum with appropriate risk adjustments",
+                "Add additional loading factors to account for data uncertainty",
+                "Implement more conservative payout thresholds"
+            ]
+        
+        return validation_result
+    
+    def _get_data_quality_rating(self, years_available: int) -> str:
+        """Rate data quality based on years available"""
+        if years_available >= self.OPTIMAL_YEARS_RANGE:
+            return "Excellent"
+        elif years_available >= self.ACTUARIAL_MINIMUM_YEARS:
+            return "Good - Meets Actuarial Standard"
+        elif years_available >= self.REGULATORY_MINIMUM_YEARS:
+            return "Acceptable - Meets Regulatory Minimum"
+        elif years_available >= 10:
+            return "Poor - Below Standards"
+        else:
+            return "Insufficient - Cannot Proceed"
+    
+    def _assess_climate_cycles(self, historical_years: List[int]) -> Dict[str, Any]:
+        """Assess climate cycle coverage in the analysis period"""
+        years_span = max(historical_years) - min(historical_years) + 1
+        
+        # Typical climate cycles
+        enso_cycles = years_span / 3.5  # El Niño/La Niña cycle ~3-7 years
+        decadal_cycles = years_span / 10  # Decadal climate patterns
+        
+        return {
+            'analysis_span_years': years_span,
+            'estimated_enso_cycles': round(enso_cycles, 1),
+            'estimated_decadal_cycles': round(decadal_cycles, 1),
+            'cycle_coverage_rating': (
+                "Excellent" if enso_cycles >= 5 else
+                "Good" if enso_cycles >= 3 else
+                "Fair" if enso_cycles >= 2 else
+                "Limited"
+            )
+        }
+    
+    def _get_actuarial_years_analysis(self, target_year: int, quote_type: str) -> List[int]:
+        """Generate actuarial-grade historical years (minimum 20 years)"""
+        current_year = datetime.now().year
+        
+        if quote_type == "historical":
+            latest_analysis_year = target_year - 1
+            max_available_years = latest_analysis_year - self.EARLIEST_RELIABLE_DATA + 1
+        else:
+            latest_analysis_year = current_year - 1
+            max_available_years = latest_analysis_year - self.EARLIEST_RELIABLE_DATA + 1
+        
+        # Determine how many years to use (aim for optimal, minimum actuarial standard)
+        years_to_use = min(self.OPTIMAL_YEARS_RANGE, max_available_years)
+        
+        # ENFORCE ACTUARIAL MINIMUM
+        if years_to_use < self.REGULATORY_MINIMUM_YEARS:
+            raise ValueError(
+                f"INSUFFICIENT DATA: Only {years_to_use} years available from {self.EARLIEST_RELIABLE_DATA}. "
+                f"Minimum {self.REGULATORY_MINIMUM_YEARS} years required for basic analysis, "
+                f"{self.ACTUARIAL_MINIMUM_YEARS} years recommended for actuarial standards."
+            )
+        
+        # Calculate start year
+        start_year = latest_analysis_year - years_to_use + 1
+        
+        # Generate the years list
+        historical_years = list(range(start_year, latest_analysis_year + 1))
+        
+        # Final validation
+        if len(historical_years) < self.REGULATORY_MINIMUM_YEARS:
+            raise ValueError(
+                f"CONFIGURATION ERROR: Generated {len(historical_years)} years, "
+                f"minimum {self.REGULATORY_MINIMUM_YEARS} required"
+            )
+        
+        # Log actuarial compliance
+        if len(historical_years) >= self.ACTUARIAL_MINIMUM_YEARS:
+            print(f"✅ ACTUARIAL COMPLIANCE: {len(historical_years)} years meets {self.ACTUARIAL_MINIMUM_YEARS}-year standard")
+        else:
+            print(f"⚠️ REGULATORY MINIMUM: {len(historical_years)} years (below {self.ACTUARIAL_MINIMUM_YEARS}-year actuarial standard)")
+        
+        return historical_years
+    
+    def _get_zone_adjustments_from_crops(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Get zone adjustments using your crops.py zone system"""
+        zone = params.get('zone', 'auto_detect')
+        
+        if zone == 'auto_detect':
+            zone = self._auto_detect_zone(params['latitude'], params['longitude'])
+        
+        # Use your zone configuration from crops.py
+        zone_config = get_zone_config(zone)
+        
+        # Convert to expected format with enhanced risk multiplier
+        risk_multiplier = self.drought_calculator.geographic_multipliers.get(zone, 1.0)
+        
+        return {
+            'zone_name': zone_config['name'],
+            'risk_multiplier': risk_multiplier,
+            'description': zone_config['description'],
+            'primary_risk': zone_config['primary_risk'],
+            'annual_rainfall_range': zone_config['annual_rainfall_range'],
+            'enhanced_drought_methodology': 'Industry Standard 10-Day Rolling + Consecutive Dry'
+        }
+    
+    def _auto_detect_zone(self, latitude: float, longitude: float) -> str:
+        """Auto-detect agro-ecological zone based on coordinates with enhanced logic"""
+        # Enhanced zone detection for Zimbabwe/Southern Africa
+        if latitude > -17.0:
+            return 'aez_3_midlands'  # Northern areas - better rainfall
+        elif latitude > -19.0:
+            return 'aez_4_masvingo'  # Central areas - moderate risk
+        else:
+            return 'aez_5_lowveld'   # Southern areas - high drought risk
+    
+    def _get_zone_risk_multiplier(self, params: Dict[str, Any]) -> float:
+        """Get enhanced zone-specific risk multiplier"""
+        zone = params.get('zone', 'auto_detect')
+        if zone == 'auto_detect':
+            zone = self._auto_detect_zone(params['latitude'], params['longitude'])
+        return self.drought_calculator.geographic_multipliers.get(zone, 1.0)
     
     def _detect_planting_dates_optimized(self, latitude: float, longitude: float, 
                                        years: List[int]) -> Dict[int, Optional[str]]:
