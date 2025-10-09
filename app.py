@@ -21,14 +21,44 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Enable CORS
+    # Fixed CORS configuration - explicit origins instead of wildcards
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:3000", "https://yieldera.co.zw", "https://*.yieldera.co.zw"],
-            "methods": ["GET", "POST", "PUT", "DELETE"],
-            "allow_headers": ["Content-Type", "Authorization"]
+            "origins": [
+                "http://localhost:3000",
+                "http://localhost:5000",
+                "https://yieldera.co.zw",
+                "https://www.yieldera.co.zw",
+                "https://dashboard.yieldera.co.zw",
+                "https://api.yieldera.co.zw"
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+            "supports_credentials": True,
+            "max_age": 3600
         }
     })
+    
+    # Additional CORS headers for all responses
+    @app.after_request
+    def after_request(response):
+        origin = request.headers.get('Origin')
+        allowed_origins = [
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "https://yieldera.co.zw",
+            "https://www.yieldera.co.zw",
+            "https://dashboard.yieldera.co.zw",
+            "https://api.yieldera.co.zw"
+        ]
+        
+        if origin in allowed_origins:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        
+        return response
     
     # Initialize Earth Engine
     try:
@@ -170,5 +200,6 @@ if __name__ == '__main__':
     print(f"   - Added individual year premium/payout simulation")
     print(f"   - Fixed seasonal logic for prospective quotes")
     print(f"   - Enhanced agronomic planting criteria")
+    print(f"   - Fixed CORS configuration for production")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
