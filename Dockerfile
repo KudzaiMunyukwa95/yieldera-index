@@ -28,5 +28,5 @@ COPY . .
 # Expose port
 EXPOSE 8080
 
-# ⭐ INCREASED TIMEOUT: 300 seconds (5 minutes) for Earth Engine queries
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "300", "--graceful-timeout", "300", "--keep-alive", "5", "app:app"]
+# ⭐ INCREASED TIMEOUT: 600 seconds (10 minutes) for heavy Earth Engine workloads
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "4", "--timeout", "600", "--graceful-timeout", "600", "--keep-alive", "5", "app:app"]
