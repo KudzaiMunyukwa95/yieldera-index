@@ -3,7 +3,7 @@ Yieldera Index Insurance Engine - Refined Application
 Enhanced backend with rainfall-only planting detection and year-by-year simulation
 """
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 import traceback
@@ -21,7 +21,7 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Fixed CORS configuration - explicit origins instead of wildcards
+    # Enhanced CORS configuration
     CORS(app, resources={
         r"/api/*": {
             "origins": [
@@ -38,6 +38,31 @@ def create_app():
             "max_age": 3600
         }
     })
+    
+    # ⭐ CRITICAL FIX: Handle preflight OPTIONS requests
+    @app.before_request
+    def handle_preflight():
+        if request.method == "OPTIONS":
+            response = app.make_default_options_response()
+            
+            origin = request.headers.get('Origin')
+            allowed_origins = [
+                "http://localhost:3000",
+                "http://localhost:5000",
+                "https://yieldera.co.zw",
+                "https://www.yieldera.co.zw",
+                "https://dashboard.yieldera.co.zw",
+                "https://api.yieldera.co.zw"
+            ]
+            
+            if origin in allowed_origins:
+                response.headers['Access-Control-Allow-Origin'] = origin
+                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+                response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+                response.headers['Access-Control-Max-Age'] = '3600'
+            
+            return response
     
     # Additional CORS headers for all responses
     @app.after_request
@@ -86,7 +111,8 @@ def create_app():
                 "Rainfall-only planting detection (no NDVI)",
                 "Year-by-year premium/payout simulation", 
                 "Seasonal validation (Oct-Jan only)",
-                "Enhanced agronomic criteria"
+                "Enhanced agronomic criteria",
+                "CORS preflight handling fixed"
             ],
             "endpoints": {
                 "health": "/api/health",
@@ -136,8 +162,19 @@ def create_app():
                 "Fixed premium rate simulation per year",
                 "Seasonal logic for prospective quotes",
                 "Rainfall-based planting (20mm/7days)",
-                "Accurate agronomic criteria"
-            ]
+                "Accurate agronomic criteria",
+                "OPTIONS preflight handling"
+            ],
+            "cors_status": {
+                "enabled": True,
+                "allowed_origins": [
+                    "https://yieldera.co.zw",
+                    "https://www.yieldera.co.zw",
+                    "localhost (development)"
+                ],
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "preflight_support": "enabled"
+            }
         })
     
     # Enhanced error handlers
@@ -200,6 +237,7 @@ if __name__ == '__main__':
     print(f"   - Added individual year premium/payout simulation")
     print(f"   - Fixed seasonal logic for prospective quotes")
     print(f"   - Enhanced agronomic planting criteria")
-    print(f"   - Fixed CORS configuration for production")
+    print(f"   - Fixed CORS preflight OPTIONS handling")
+    print(f"   ✅ CORS properly configured for https://yieldera.co.zw")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
