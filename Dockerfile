@@ -25,8 +25,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Expose port (CapRover standard)
+# Expose port
 EXPOSE 8080
 
-# Run application (no healthcheck for CapRover)
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "120", "app:app"]
+# ⭐ INCREASED TIMEOUT: 300 seconds (5 minutes) for Earth Engine queries
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "300", "--graceful-timeout", "300", "--keep-alive", "5", "app:app"]
