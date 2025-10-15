@@ -3,14 +3,16 @@ Enhanced Actuarially Correct High-Performance Quote Engine V3.1-CALIBRATED
 Industry Standard 10-Day Rolling Drought Detection - Acre Africa Compatible
 CALIBRATED for realistic premium rates (0-20% range)
 Fixed Earth Engine query limits and division by zero errors
+Enhanced JSON serialization for frontend sync
 """
 
 import ee
 import json
 import math
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
+import decimal
 import numpy as np
+from datetime import datetime, timedelta, date
+from typing import Dict, List, Any, Optional, Tuple
 
 # Import from existing crops.py (using your structure)
 from core.crops import (
@@ -398,12 +400,31 @@ class CalibratedQuoteEngine:
         print("   • Risk scaling methodology for realistic rates")
         print("   • Phase-specific sensitivity levels - CALIBRATED")
         print("   • Geographic risk multipliers - CALIBRATED")
-        print("🔧 FIXES APPLIED: Earth Engine chunking, error handling, rate calibration")
+        print("🔧 FIXES APPLIED: Earth Engine chunking, error handling, rate calibration, JSON serialization")
         print(f"💰 CALIBRATED PARAMETERS:")
         print(f"   • Base loading factor: {self.base_loading_factor} (reduced from 1.5)")
         print(f"   • Market calibration: {self.market_calibration_factor}")
         print(f"   • Risk scaling: {self.risk_scaling_factor}")
         print(f"   • Premium rate range: {self.minimum_premium_rate*100:.1f}%-{self.maximum_premium_rate*100:.0f}%")
+    
+    def _ensure_json_serializable(self, obj):
+        """Ensure all data types in the object are JSON serializable"""
+        if isinstance(obj, dict):
+            return {key: self._ensure_json_serializable(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._ensure_json_serializable(item) for item in obj]
+        elif isinstance(obj, (decimal.Decimal, np.floating)):
+            return float(obj)
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif hasattr(obj, '__dict__'):
+            return self._ensure_json_serializable(obj.__dict__)
+        else:
+            return obj
     
     def _scale_drought_risk(self, drought_impact_percent: float) -> float:
         """Apply industry-standard risk scaling to reduce extreme rates"""
@@ -600,8 +621,10 @@ class CalibratedQuoteEngine:
             print(f"⚡ Performance improvement: Server-side batch processing")
             print(f"🎯 CALIBRATED DROUGHT DETECTION: Realistic rates in 0-20% range")
             print(f"🏢 ACRE AFRICA COMPATIBLE: Industry standard methodology - CALIBRATED")
-            print(f"🔧 FIXES APPLIED: Earth Engine chunking + error handling + rate calibration")
+            print(f"🔧 FIXES APPLIED: Earth Engine chunking + error handling + rate calibration + JSON serialization")
             
+            # Ensure proper JSON serialization
+            quote_result = self._ensure_json_serializable(quote_result)
             return quote_result
             
         except Exception as e:
@@ -1019,13 +1042,16 @@ class CalibratedQuoteEngine:
             
             # Calibrated risk analysis
             'calibrated_expected_payout_ratio': avg_calibrated_drought_impact / 100.0,
+            'enhanced_expected_payout_ratio': avg_calibrated_drought_impact / 100.0,  # For frontend compatibility
             'historical_years_used': list(planting_dates.keys()),
             'zone': params.get('zone', 'auto_detected'),
             'zone_adjustments': zone_adjustments,
             
             # Calibrated metrics
             'calibrated_phase_breakdown': calibrated_phase_breakdown,
+            'enhanced_phase_breakdown': calibrated_phase_breakdown,  # For frontend compatibility
             'calibrated_simulation_summary': calibrated_simulation_summary,
+            'enhanced_simulation_summary': calibrated_simulation_summary,  # For frontend compatibility
             
             # Metadata
             'generated_at': datetime.utcnow().isoformat(),
@@ -1082,6 +1108,14 @@ class CalibratedQuoteEngine:
                     'years_with_consecutive_stress': phases_with_consecutive_stress,
                     'total_years_analyzed': len(phase_analyses)
                 },
+                'enhanced_drought_analysis': {  # For frontend compatibility
+                    'average_rolling_drought_frequency': round(avg_rolling_drought_freq, 1),
+                    'average_consecutive_dry_days': round(avg_consecutive_dry_days, 1),
+                    'average_stress_factor': round(avg_stress_factor, 3),
+                    'years_with_rolling_stress': phases_with_rolling_stress,
+                    'years_with_consecutive_stress': phases_with_consecutive_stress,
+                    'total_years_analyzed': len(phase_analyses)
+                },
                 'methodology': 'Industry Standard 10-Day Rolling + Consecutive Dry - CALIBRATED',
                 'acre_africa_compatibility': 'Full compliance - CALIBRATED for realistic rates'
             }
@@ -1129,10 +1163,13 @@ class CalibratedQuoteEngine:
             'years_analyzed': len(valid_years),
             'calibrated_methodology': 'Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative - CALIBRATED',
             'average_calibrated_drought_impact': round(sum(calibrated_drought_impacts) / len(calibrated_drought_impacts), 2),
+            'average_enhanced_drought_impact': round(sum(calibrated_drought_impacts) / len(calibrated_drought_impacts), 2),  # For frontend compatibility
             'calibrated_premium_rate': round(calibrated_premium_rate, 4),
             'average_payout': round(sum(total_payouts) / len(total_payouts), 2),
             'average_loss_ratio': round(sum(loss_ratios) / len(loss_ratios), 4),
             'calibrated_payout_frequency': round(calibrated_payout_frequency, 1),
+            'enhanced_payout_frequency': round(calibrated_payout_frequency, 1),  # For frontend compatibility
+            'payout_frequency': round(calibrated_payout_frequency, 1),  # For frontend compatibility
             'maximum_loss_year': worst_year_data['year'],
             'maximum_calibrated_loss_impact': round(worst_year_data['calibrated_drought_analysis']['total_drought_impact_percent'], 2),
             'minimum_loss_year': best_year_data['year'],
@@ -1224,9 +1261,26 @@ class CalibratedQuoteEngine:
                 "total_payouts_received": round(total_payouts, 2),
                 "net_farmer_position": round(net_position, 2),
                 "calibrated_payout_frequency_percent": round(calibrated_payout_frequency, 1),
+                "enhanced_payout_frequency_percent": round(calibrated_payout_frequency, 1),  # For frontend compatibility
+                "methodology": "Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative - CALIBRATED"
+            },
+            "enhanced_historical_performance": {  # For frontend compatibility
+                "total_seasons": len(valid_years),
+                "calibrated_premium_rate": round(calibrated_rate, 4),
+                "total_premiums_paid": round(total_premiums, 2),
+                "total_payouts_received": round(total_payouts, 2),
+                "net_farmer_position": round(net_position, 2),
+                "enhanced_payout_frequency_percent": round(calibrated_payout_frequency, 1),
                 "methodology": "Industry Standard 10-Day Rolling + Consecutive Dry + Cumulative - CALIBRATED"
             },
             "calibrated_drought_insights": {
+                "average_rolling_drought_frequency": round(avg_rolling_drought_freq, 1),
+                "average_consecutive_dry_days": round(avg_consecutive_dry_days, 1),
+                "drought_detection_method": "10-day rolling windows (≤20mm threshold) - CALIBRATED",
+                "consecutive_drought_threshold": "≥12 consecutive days <1mm rainfall - CALIBRATED",
+                "acre_africa_compatibility": "Full compliance with industry standards - CALIBRATED for realistic rates"
+            },
+            "enhanced_drought_insights": {  # For frontend compatibility
                 "average_rolling_drought_frequency": round(avg_rolling_drought_freq, 1),
                 "average_consecutive_dry_days": round(avg_consecutive_dry_days, 1),
                 "drought_detection_method": "10-day rolling windows (≤20mm threshold) - CALIBRATED",
@@ -1248,6 +1302,15 @@ class CalibratedQuoteEngine:
                 "description": f"Severe drought year with {worst_calibrated_impact:.1f}% CALIBRATED loss and ${worst_year['simulated_payout']:,.0f} payout"
             },
             "calibrated_value_for_money": {
+                "loss_ratio": round((total_payouts / total_premiums), 3) if total_premiums > 0 else 0,
+                "interpretation": (
+                    "Excellent value - high payout efficiency" if (total_payouts / total_premiums) > 0.7 else
+                    "Good value - balanced protection" if (total_payouts / total_premiums) > 0.4 else
+                    "Standard value - conservative claims experience"
+                ) if total_premiums > 0 else "Unable to calculate",
+                "calibrated_methodology_note": "Analysis incorporates CALIBRATED industry standard 10-day rolling drought detection for realistic premium rates"
+            },
+            "enhanced_value_for_money": {  # For frontend compatibility
                 "loss_ratio": round((total_payouts / total_premiums), 3) if total_premiums > 0 else 0,
                 "interpretation": (
                     "Excellent value - high payout efficiency" if (total_payouts / total_premiums) > 0.7 else
@@ -1769,4 +1832,4 @@ class CalibratedQuoteEngine:
 QuoteEngine = CalibratedQuoteEngine
 
 if __name__ == "__main__":
-    print("CALIBRATED Quote Engine V3.1 - Ready for realistic premium rates (0-20%)")
+    print("CALIBRATED Quote Engine V3.1 - Ready for realistic premium rates (0-20%) with enhanced JSON serialization")
