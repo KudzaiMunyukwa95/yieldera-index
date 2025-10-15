@@ -7,7 +7,10 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 import traceback
-from datetime import datetime
+import json
+import decimal
+import numpy as np
+from datetime import datetime, date
 
 # Core modules
 from config import Config
@@ -15,6 +18,25 @@ from core.gee_client import initialize_earth_engine
 from api.quotes import quotes_bp  # Updated with refined features
 from api.fields import fields_bp
 from api.health import health_bp
+
+def ensure_json_serializable(obj):
+    """Ensure all data types in the object are JSON serializable"""
+    if isinstance(obj, dict):
+        return {key: ensure_json_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [ensure_json_serializable(item) for item in obj]
+    elif isinstance(obj, (decimal.Decimal, np.floating)):
+        return float(obj)
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif hasattr(obj, '__dict__'):
+        return ensure_json_serializable(obj.__dict__)
+    else:
+        return obj
 
 def create_app():
     """Application factory pattern with refined features"""
@@ -83,6 +105,16 @@ def create_app():
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
         
+        # Ensure JSON response with proper serialization
+        if response.content_type and 'application/json' in response.content_type:
+            try:
+                data = response.get_json()
+                if data:
+                    serialized_data = ensure_json_serializable(data)
+                    response.data = json.dumps(serialized_data, default=str)
+            except Exception as e:
+                print(f"JSON serialization warning: {e}")
+        
         return response
     
     # Initialize Earth Engine
@@ -112,7 +144,8 @@ def create_app():
                 "Year-by-year premium/payout simulation", 
                 "Seasonal validation (Oct-Jan only)",
                 "Enhanced agronomic criteria",
-                "CORS preflight handling fixed"
+                "CORS preflight handling fixed",
+                "Enhanced JSON serialization"
             ],
             "endpoints": {
                 "health": "/api/health",
@@ -163,7 +196,8 @@ def create_app():
                 "Seasonal logic for prospective quotes",
                 "Rainfall-based planting (20mm/7days)",
                 "Accurate agronomic criteria",
-                "OPTIONS preflight handling"
+                "OPTIONS preflight handling",
+                "Enhanced JSON serialization"
             ],
             "cors_status": {
                 "enabled": True,
@@ -238,6 +272,7 @@ if __name__ == '__main__':
     print(f"   - Fixed seasonal logic for prospective quotes")
     print(f"   - Enhanced agronomic planting criteria")
     print(f"   - Fixed CORS preflight OPTIONS handling")
+    print(f"   - Enhanced JSON serialization for frontend sync")
     print(f"   ✅ CORS properly configured for https://yieldera.co.zw")
     
     app.run(host="0.0.0.0", port=port, debug=debug)
