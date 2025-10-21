@@ -1,34 +1,11 @@
-# Core Flask Framework
 Flask==2.3.3
 Flask-CORS==4.0.0
-gunicorn==21.2.0
-
-# Database - OPTIMIZED with connection pooling support
-mysql-connector-python==8.2.0
-
-# NEW: Redis Caching for Performance
-redis==4.6.0
-hiredis==2.2.3
-
-# Google Earth Engine
 earthengine-api==0.1.398
+mysql-connector-python==8.2.0
+gunicorn==21.2.0
 google-auth==2.23.4
-google-auth-oauthlib==1.1.1
+google-auth-oauthlib==1.1.0
 google-auth-httplib2==0.1.1
-
-# Data Processing
-pandas>=1.5.0
-numpy>=1.24.0
-python-dateutil>=2.8.0
-
-# AI/ML (Optional - if used)
 openai>=1.12.0
-
-# Environment Configuration
-python-dotenv>=1.0.0
-
-# Performance Monitoring (Optional but recommended)
-python-json-logger>=2.0.7
-
-# Additional utilities
-pytz>=2023.3
+python-dateutil>=2.8.0
+pandas>=1.5.0
