@@ -12,7 +12,7 @@ from typing import Dict, List, Any
 
 from core.quote_engine import QuoteEngine
 from core.database import FieldsRepository, QuotesRepository
-from core.ai_summary import EnterpriseExecutiveSummaryGenerator, generate_executive_summary
+from core.ai_summary import generate_executive_summary
 from core.crops import validate_crop, list_supported_crops
 
 quotes_bp = Blueprint('quotes', __name__)
@@ -21,7 +21,6 @@ quotes_bp = Blueprint('quotes', __name__)
 quote_engine = QuoteEngine()
 fields_repo = FieldsRepository()
 quotes_repo = QuotesRepository()
-enterprise_summary_generator = EnterpriseExecutiveSummaryGenerator()
 
 @quotes_bp.route('/historical', methods=['POST'])
 def historical_quote():
