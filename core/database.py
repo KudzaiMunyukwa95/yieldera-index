@@ -33,7 +33,7 @@ class DatabaseManager:
             
             DatabaseManager._pool = pooling.MySQLConnectionPool(
                 pool_name="yieldera_pool",
-                pool_size=10,  # Maximum 10 concurrent connections
+                pool_size=10,
                 pool_reset_session=True,
                 host=Config.DB_HOST,
                 port=Config.DB_PORT,
@@ -43,15 +43,14 @@ class DatabaseManager:
                 autocommit=True,
                 charset='utf8mb4',
                 use_unicode=True,
-                connect_timeout=60  # Increased for high latency (Singapore→Amsterdam)
-                # Note: read_timeout and write_timeout not supported in pooling config
+                connect_timeout=120  # Increased to 120s for Singapore→Amsterdam latency
             )
             DatabaseManager._pool_initialized = True
             print("SUCCESS: Database connection pool initialized")
             print(f"  Pool size: 10 connections")
             print(f"  Host: {Config.DB_HOST}")
             print(f"  Database: {Config.DB_NAME}")
-            print(f"  Connect timeout: 60s")
+            print(f"  Connect timeout: 120s (high latency optimized)")
         except Error as e:
             print(f"ERROR: Failed to initialize connection pool: {e}")
             raise
