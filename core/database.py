@@ -1,9 +1,10 @@
 """
-Database management - QUICK FIX for location bytearray issue
+Database management - OPTIMIZED with Connection Pooling
+Fixed for high-latency connections (Singapore -> Amsterdam)
 """
 
 import mysql.connector
-from mysql.connector import Error
+from mysql.connector import pooling, Error
 import json
 from datetime import datetime, date
 from typing import Dict, List, Optional, Any
@@ -13,38 +14,68 @@ import decimal
 import traceback
 
 class DatabaseManager:
-    """Manages database connections and operations"""
+    """Manages database connections with connection pooling for performance"""
+    
+    # Class-level connection pool (shared across all instances)
+    _pool = None
+    _pool_initialized = False
     
     def __init__(self):
-        self.config = {
-            'host': Config.DB_HOST,
-            'port': Config.DB_PORT,
-            'database': Config.DB_NAME,
-            'user': Config.DB_USER,
-            'password': Config.DB_PASSWORD,
-            'autocommit': True,
-            'charset': 'utf8mb4',
-            'use_unicode': True,
-            'connect_timeout': 30,
-            'sql_mode': 'TRADITIONAL'
-        }
+        """Initialize connection pool on first instantiation"""
+        if not DatabaseManager._pool_initialized:
+            self._initialize_pool()
+    
+    def _initialize_pool(self):
+        """Initialize MySQL connection pool for connection reuse"""
+        try:
+            DatabaseManager._pool = pooling.MySQLConnectionPool(
+                pool_name="yieldera_pool",
+                pool_size=10,  # Maximum 10 concurrent connections
+                pool_reset_session=True,
+                host=Config.DB_HOST,
+                port=Config.DB_PORT,
+                database=Config.DB_NAME,
+                user=Config.DB_USER,
+                password=Config.DB_PASSWORD,
+                autocommit=True,
+                charset='utf8mb4',
+                use_unicode=True,
+                connect_timeout=60,      # Increased for high latency
+                read_timeout=120,        # Added for long-running queries
+                write_timeout=120,       # Added for long-running queries
+                sql_mode='TRADITIONAL'
+            )
+            DatabaseManager._pool_initialized = True
+            print("✅ Database connection pool initialized successfully")
+            print(f"   Pool size: 10 connections")
+            print(f"   Host: {Config.DB_HOST}")
+            print(f"   Database: {Config.DB_NAME}")
+            print(f"   Timeouts: connect=60s, read=120s, write=120s")
+        except Error as e:
+            print(f"❌ Failed to initialize connection pool: {e}")
+            raise
     
     @contextmanager
     def get_connection(self):
-        """Context manager for database connections"""
+        """
+        Context manager for database connections - now uses connection pooling
+        Connections are reused instead of creating new TCP connections
+        """
         connection = None
         try:
-            connection = mysql.connector.connect(**self.config)
+            # Get connection from pool (fast - reuses existing connection)
+            connection = DatabaseManager._pool.get_connection()
             yield connection
         except Error as e:
             print(f"Database error: {e}")
             raise
         finally:
             if connection and connection.is_connected():
+                # Close returns connection to pool, doesn't close TCP connection
                 connection.close()
     
     def test_connection(self) -> bool:
-        """Test database connectivity"""
+        """Test database connectivity using pooled connection"""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -55,6 +86,16 @@ class DatabaseManager:
         except Exception as e:
             print(f"Database connection test failed: {e}")
             return False
+    
+    def get_pool_stats(self) -> Dict[str, Any]:
+        """Get connection pool statistics for monitoring"""
+        if DatabaseManager._pool:
+            return {
+                "pool_name": DatabaseManager._pool.pool_name,
+                "pool_size": DatabaseManager._pool.pool_size,
+                "pool_initialized": DatabaseManager._pool_initialized
+            }
+        return {"pool_initialized": False}
 
 def clean_database_value(value):
     """Clean database values for JSON serialization - ENHANCED"""
@@ -135,6 +176,7 @@ class FieldsRepository:
     def get_field_by_id(self, field_id: int) -> Optional[Dict[str, Any]]:
         """
         Get field data by ID with comprehensive data cleaning
+        OPTIMIZED: Uses connection pooling for faster queries
         """
         try:
             with self.db.get_connection() as conn:
@@ -167,19 +209,13 @@ class FieldsRepository:
                     if key == 'location' and isinstance(value, bytearray):
                         field_data[key] = "GEOMETRY_POLYGON"  # Simplified representation
                 
-                print(f"Field {field_id} cleaned data: {field_data}")
-                
                 # Validate coordinates with safe conversion
                 lat_raw = field_data.get('latitude')
                 lng_raw = field_data.get('longitude')
                 
-                print(f"Field {field_id} coordinates - lat_raw: {lat_raw} (type: {type(lat_raw)}), lng_raw: {lng_raw} (type: {type(lng_raw)})")
-                
                 # Convert coordinates safely
                 latitude = safe_numeric_conversion(lat_raw, 'latitude')
                 longitude = safe_numeric_conversion(lng_raw, 'longitude')
-                
-                print(f"Field {field_id} converted coordinates - latitude: {latitude}, longitude: {longitude}")
                 
                 if latitude is None or longitude is None:
                     print(f"Warning: Field {field_id} has NULL/invalid coordinates")
@@ -208,8 +244,6 @@ class FieldsRepository:
                 
                 field_data['area_ha'] = area_ha
                 
-                print(f"Field {field_id} final cleaned data: {field_data}")
-                
                 return field_data
                 
         except Exception as e:
@@ -217,8 +251,68 @@ class FieldsRepository:
             print(f"Error traceback: {traceback.format_exc()}")
             return None
     
+    def get_fields_batch(self, field_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        """
+        NEW: Fetch multiple fields in a single query for performance
+        OPTIMIZED: Reduces database round-trips from N to 1
+        """
+        if not field_ids:
+            return {}
+        
+        try:
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                
+                # Create placeholders for IN clause
+                placeholders = ','.join(['%s'] * len(field_ids))
+                
+                query = f"""
+                SELECT 
+                    id, farm_id, name, farmer_name, farmer_phone,
+                    area_ha, crop, variety, planting_date, irrigated,
+                    latitude, longitude, owner_entity_id, created_at
+                FROM fields 
+                WHERE id IN ({placeholders})
+                """
+                
+                cursor.execute(query, tuple(field_ids))
+                raw_fields = cursor.fetchall()
+                cursor.close()
+                
+                # Process and clean all fields
+                result = {}
+                for raw_field in raw_fields:
+                    field_id = raw_field['id']
+                    
+                    # Clean all values
+                    field_data = {}
+                    for key, value in raw_field.items():
+                        field_data[key] = clean_database_value(value)
+                    
+                    # Validate coordinates
+                    latitude = safe_numeric_conversion(field_data.get('latitude'), 'latitude')
+                    longitude = safe_numeric_conversion(field_data.get('longitude'), 'longitude')
+                    
+                    if latitude is not None and longitude is not None:
+                        if -90 <= latitude <= 90 and -180 <= longitude <= 180:
+                            field_data['latitude'] = latitude
+                            field_data['longitude'] = longitude
+                            
+                            # Handle area_ha
+                            area_ha = safe_numeric_conversion(field_data.get('area_ha'), 'area_ha')
+                            field_data['area_ha'] = area_ha
+                            
+                            result[field_id] = field_data
+                
+                print(f"✅ Batch fetched {len(result)}/{len(field_ids)} valid fields")
+                return result
+                
+        except Exception as e:
+            print(f"Error batch fetching fields: {e}")
+            return {}
+    
     def get_fields_by_owner(self, owner_entity_id: int, limit: int = 100) -> List[Dict[str, Any]]:
-        """Get fields by owner with data cleaning"""
+        """Get fields by owner with data cleaning - OPTIMIZED with pooling"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
@@ -271,7 +365,7 @@ class FieldsRepository:
             return []
     
     def search_fields(self, filters: Dict[str, Any], limit: int = 100) -> List[Dict[str, Any]]:
-        """Search fields with filters and data cleaning"""
+        """Search fields with filters and data cleaning - OPTIMIZED"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
@@ -348,7 +442,7 @@ class FieldsRepository:
             return []
     
     def create_field(self, field_data: Dict[str, Any]) -> Optional[int]:
-        """Create a new field with validation"""
+        """Create a new field with validation - OPTIMIZED"""
         try:
             # Validate coordinates before insertion
             if 'latitude' in field_data and 'longitude' in field_data:
@@ -410,13 +504,13 @@ class FieldsRepository:
             return None
 
 class QuotesRepository:
-    """Repository for quote-related database operations with data cleaning"""
+    """Repository for quote-related database operations with data cleaning - OPTIMIZED"""
     
     def __init__(self):
         self.db = DatabaseManager()
     
     def save_quote(self, quote_data: Dict[str, Any]) -> Optional[str]:
-        """Save quote to database with enhanced error handling"""
+        """Save quote to database with enhanced error handling - OPTIMIZED"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor()
@@ -481,6 +575,73 @@ class QuotesRepository:
             print(f"Error saving quote: {e}")
             return None
     
+    def save_quotes_batch(self, quotes: List[Dict[str, Any]]) -> List[Optional[str]]:
+        """
+        NEW: Save multiple quotes in a single transaction
+        OPTIMIZED: Reduces database round-trips dramatically
+        """
+        if not quotes:
+            return []
+        
+        try:
+            with self.db.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Ensure table exists
+                self._ensure_quotes_table(cursor)
+                
+                query = """
+                INSERT INTO quotes 
+                (quote_id, field_id, crop, year, quote_type, sum_insured,
+                 gross_premium, premium_rate, payout_index, burning_cost,
+                 planting_date, zone, quote_data, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                
+                quote_ids = []
+                values_list = []
+                
+                for quote_data in quotes:
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                    field_suffix = quote_data.get('field_id', 'GEOM')
+                    quote_id = f"Q{timestamp}_{field_suffix}_{len(quote_ids)}"
+                    
+                    # Clean quote_data
+                    cleaned_quote_data = {}
+                    for key, value in quote_data.items():
+                        cleaned_quote_data[key] = clean_database_value(value)
+                    
+                    values = (
+                        quote_id,
+                        quote_data.get('field_id'),
+                        str(quote_data.get('crop', 'unknown')),
+                        int(quote_data.get('year', datetime.now().year)),
+                        str(quote_data.get('quote_type', 'unknown')),
+                        float(quote_data.get('sum_insured', 0)),
+                        float(quote_data.get('gross_premium', 0)),
+                        float(quote_data.get('premium_rate', 0)),
+                        float(quote_data.get('total_payout_ratio', 0)),
+                        float(quote_data.get('burning_cost', 0)),
+                        quote_data.get('planting_date'),
+                        str(quote_data.get('zone', 'auto_detect')),
+                        json.dumps(cleaned_quote_data),
+                        datetime.utcnow()
+                    )
+                    
+                    values_list.append(values)
+                    quote_ids.append(quote_id)
+                
+                # Execute batch insert
+                cursor.executemany(query, values_list)
+                cursor.close()
+                
+                print(f"✅ Batch saved {len(quote_ids)} quotes")
+                return quote_ids
+                
+        except Exception as e:
+            print(f"Error batch saving quotes: {e}")
+            return [None] * len(quotes)
+    
     def _ensure_quotes_table(self, cursor):
         """Ensure quotes table exists"""
         try:
@@ -513,7 +674,7 @@ class QuotesRepository:
             print(f"Error ensuring quotes table: {e}")
     
     def get_quote_by_id(self, quote_id: str) -> Optional[Dict[str, Any]]:
-        """Get quote by ID with data cleaning"""
+        """Get quote by ID with data cleaning - OPTIMIZED"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
@@ -553,7 +714,7 @@ class QuotesRepository:
             return None
     
     def get_quotes_by_field(self, field_id: int, limit: int = 20) -> List[Dict[str, Any]]:
-        """Get quotes for a field with data cleaning"""
+        """Get quotes for a field with data cleaning - OPTIMIZED"""
         try:
             with self.db.get_connection() as conn:
                 cursor = conn.cursor(dictionary=True)
